@@ -1,0 +1,21 @@
+{
+  "name": "VDH Contable & Soluciones",
+  "short_name": "VDH App",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0b1e47",
+  "theme_color": "#c59d5f",
+  "description": "Gestión Tributaria y Clientes VDH",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
