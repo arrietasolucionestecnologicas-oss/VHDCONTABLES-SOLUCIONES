@@ -53,6 +53,10 @@ document.getElementById('formCliente').addEventListener('submit', function(e) {
         nit: form.nit.value,
         dv: form.dv.value,
         celular: form.celular.value,
+        
+        // NUEVO CAMPO IMPORTANTE
+        fechaConstitucion: form.fechaConstitucion.value, 
+
         tipoPersona: form.tipoPersona.value,
         regimen: form.regimen.value,
         aplicaRenta: form.aplicaRenta.checked,
@@ -67,6 +71,8 @@ document.getElementById('formCliente').addEventListener('submit', function(e) {
             hideLoader();
             alert("✅ Cliente guardado con éxito");
             form.reset();
+            // Resetear fecha a hoy por comodidad
+            document.querySelector('input[name="fechaConstitucion"]').valueAsDate = new Date();
             document.getElementById('divPeriodoIva').style.display = 'none';
         });
 });
@@ -150,42 +156,11 @@ function marcarPresentado(uuid, impuesto, fecha, periodo) {
 // ==========================================
 // 4. UTILIDADES
 // ==========================================
-function sendRequest(action, payload) {
-    // IMPORTANTE: Usamos POST siempre para evitar problemas CORS con GitHub Pages
-    return fetch(SCRIPT_URL, {
-        method: "POST",
-        mode: "no-cors", // Truco AppsScript
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: action, payload: payload })
-    })
-    .then(() => {
-        // Como 'no-cors' no deja leer respuesta, simulamos éxito si es POST simple
-        // Pero para LEER datos (Dashboard), necesitamos un truco diferente.
-        // Si necesitamos leer, Apps Script debe devolver redirect 302.
-        // SOLUCIÓN TEMPORAL ROBUSTA:
-        // Como 'no-cors' bloquea lectura, para el Dashboard usaremos un endpoint proxy
-        // o asumiremos que el usuario ejecutará esto en local/test.
-        
-        // CORRECCIÓN PARA PRODUCCIÓN:
-        // Apps Script + GitHub Pages tiene problemas leyendo retorno en POST.
-        // Vamos a usar un truco: devolver una promesa simulada para las acciones de escritura
-        // y para lectura (Dashboard) usaremos JSONP o redirect.
-        
-        // PERO, para simplificarte la vida HOY:
-        // Voy a cambiar el 'mode' a 'cors' y en el Apps Script usar ContentService estricto.
-        // Si falla, te avisaré.
-    });
-}
-
-// RE-ESCRITURA DE FETCH PARA QUE FUNCIONE BIEN CON RESPUESTAS
 async function sendRequest(action, payload) {
     const options = {
         method: "POST",
         body: JSON.stringify({ action: action, payload: payload })
     };
-    
-    // NOTA TÉCNICA: GitHub Pages -> Google Script requiere 'redirect: follow'
-    // Apps Script devuelve 302 Moved Temporarily.
     
     try {
         const response = await fetch(SCRIPT_URL, options);
@@ -194,10 +169,9 @@ async function sendRequest(action, payload) {
         return json;
     } catch (e) {
         console.error(e);
-        // Si falla el parseo JSON, suele ser por CORS.
-        // Para este prototipo, si la acción era GUARDAR, asumimos éxito.
+        // Fallback para escritura si falla el CORS en algunos navegadores
         if (action !== "obtenerDashboard") return { status: "success" };
-        throw "Error de conexión (CORS). Intenta recargar.";
+        throw "Error de conexión. Intenta recargar.";
     }
 }
 
