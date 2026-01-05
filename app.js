@@ -7,7 +7,7 @@
 // ⚠️ PEGA AQUÍ LA URL DE TU APLICACIÓN WEB DE GOOGLE SCRIPT
 // Debe terminar en /exec
 // ==========================================================
-const SCRIPT_URL = "AQUI_PEGA_TU_URL_DEL_SCRIPT_DE_GOOGLE"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbznKirsEMFmcddNNm7nocumAT3hfGs_qul4bsY3MDI0FOE_SvS18_CP1RO97WnljlYT1g/exec"; 
 
 // 1. Lógica PWA (Instalar App)
 let deferredPrompt;
