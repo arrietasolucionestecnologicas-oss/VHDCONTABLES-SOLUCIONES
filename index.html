@@ -3,121 +3,157 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VDH Contable App</title>
+    <title>VDH Contable PRO</title>
     
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#0b1e47">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3135/3135715.png">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <header class="app-header">
-        <h4 class="brand-title">VDH CONTABLE</h4>
-        <small>Sistema de Gestión Tributaria</small>
+    <nav class="navbar fixed-bottom navbar-light bg-light d-md-none border-top shadow-lg">
+        <div class="container-fluid justify-content-around">
+            <a class="nav-link text-center active-nav" href="#" onclick="showSection('crear', this)">
+                <i class="bi bi-person-plus-fill fs-3 d-block"></i>
+                <small>Nuevo</small>
+            </a>
+            <a class="nav-link text-center" href="#" onclick="showSection('dashboard', this)">
+                <i class="bi bi-list-check fs-3 d-block"></i>
+                <small>Estado</small>
+            </a>
+        </div>
+    </nav>
+
+    <header class="app-header d-none d-md-block">
+        <div class="container d-flex justify-content-between align-items-center">
+            <h4 class="brand-title">VDH CONTABLE & SOLUCIONES</h4>
+            <div>
+                <button class="btn btn-outline-light me-2" onclick="showSection('crear')">Nuevo Cliente</button>
+                <button class="btn btn-warning" onclick="showSection('dashboard')">Ver Vencimientos</button>
+            </div>
+        </div>
+    </header>
+
+    <header class="app-header d-md-none text-center">
+        <h5 class="brand-title m-0">VDH CONTABLE</h5>
     </header>
 
     <div id="install-banner">
-        📲 Instalar App en este dispositivo
+        📲 Instalar App
     </div>
 
-    <div class="container mt-4">
+    <div class="container mt-4 mb-5 pb-5">
         
-        <div class="card card-custom">
-            <div class="card-header-custom">
-                ➕ Registrar Nuevo Cliente
-            </div>
-            <div class="card-body">
-                <form id="formCliente">
-                    <div class="mb-3">
-                        <label class="form-label">Razón Social / Nombre</label>
-                        <input type="text" class="form-control" name="razonSocial" required placeholder="Nombre del Cliente">
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-8 mb-3">
-                            <label class="form-label">NIT</label>
-                            <input type="number" class="form-control" id="nit" name="nit" required placeholder="Sin DV">
+        <div id="section-crear" class="fade-in">
+            <div class="card card-custom">
+                <div class="card-header-custom d-flex justify-content-between">
+                    <span><i class="bi bi-person-plus"></i> Registrar Cliente</span>
+                </div>
+                <div class="card-body">
+                    <form id="formCliente">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-muted">Razón Social / Nombre</label>
+                            <input type="text" class="form-control" name="razonSocial" required placeholder="Nombre del Cliente">
                         </div>
-                        <div class="col-4 mb-3">
-                            <label class="form-label">DV</label>
-                            <input type="text" class="form-control" name="dv" id="dv_calc" readonly style="background:#e9ecef">
+                        
+                        <div class="row">
+                            <div class="col-8 mb-3">
+                                <label class="form-label fw-bold text-muted">NIT</label>
+                                <input type="number" class="form-control" id="nit" name="nit" required placeholder="Sin DV">
+                            </div>
+                            <div class="col-4 mb-3">
+                                <label class="form-label fw-bold text-muted">DV</label>
+                                <input type="text" class="form-control" name="dv" id="dv_calc" readonly style="background:#e9ecef; font-weight:bold;">
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Celular (WhatsApp)</label>
-                        <input type="tel" class="form-control" name="celular" required placeholder="Ej: 3013647938">
-                    </div>
-
-                    <div class="row">
-                        <div class="col-6 mb-3">
-                            <label class="form-label">Tipo Persona</label>
-                            <select class="form-select" name="tipoPersona">
-                                <option value="Juridica">Jurídica</option>
-                                <option value="Natural">Natural</option>
-                                <option value="Gran Contribuyente">Gran Contribuyente</option>
-                            </select>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-muted">Celular (WhatsApp)</label>
+                            <input type="tel" class="form-control" name="celular" required placeholder="Ej: 3013647938">
                         </div>
-                        <div class="col-6 mb-3">
-                            <label class="form-label">Régimen</label>
-                            <select class="form-select" name="regimen">
-                                <option value="Ordinario">Ordinario</option>
-                                <option value="Simple">Simple (RST)</option>
-                                <option value="No Responsable">No Resp. IVA</option>
-                            </select>
+
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label class="form-label fw-bold text-muted">Tipo Persona</label>
+                                <select class="form-select" name="tipoPersona">
+                                    <option value="Juridica">Jurídica</option>
+                                    <option value="Natural">Natural</option>
+                                    <option value="Gran Contribuyente">Gran Contribuyente</option>
+                                </select>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label fw-bold text-muted">Régimen</label>
+                                <select class="form-select" name="regimen">
+                                    <option value="Ordinario">Ordinario</option>
+                                    <option value="Simple">Simple (RST)</option>
+                                    <option value="No Responsable">No Resp. IVA</option>
+                                </select>
+                            </div>
                         </div>
-                    </div>
 
-                    <hr>
-                    <h6 class="text-primary mb-3">Obligaciones</h6>
-                    
-                    <div class="form-check form-switch mb-2">
-                        <input class="form-check-input" type="checkbox" name="aplicaRenta" checked>
-                        <label class="form-check-label">Aplica Renta</label>
-                    </div>
+                        <hr class="border-secondary">
+                        <h6 class="text-primary fw-bold mb-3"><i class="bi bi-file-earmark-text"></i> Obligaciones Tributarias</h6>
+                        
+                        <div class="form-check form-switch mb-2 p-3 bg-light rounded">
+                            <input class="form-check-input" type="checkbox" name="aplicaRenta" checked>
+                            <label class="form-check-label fw-bold">Aplica Renta</label>
+                        </div>
 
-                    <div class="form-check form-switch mb-2">
-                        <input class="form-check-input" type="checkbox" name="aplicaIva" id="checkIva">
-                        <label class="form-check-label">Aplica IVA</label>
-                    </div>
+                        <div class="form-check form-switch mb-2 p-3 bg-light rounded">
+                            <input class="form-check-input" type="checkbox" name="aplicaIva" id="checkIva">
+                            <label class="form-check-label fw-bold">Aplica IVA</label>
+                            
+                            <div class="mt-2" id="divPeriodoIva" style="display:none;">
+                                <select class="form-select form-select-sm border-warning" name="periodoIva">
+                                    <option value="Bimestral">Bimestral</option>
+                                    <option value="Cuatrimestral">Cuatrimestral</option>
+                                </select>
+                            </div>
+                        </div>
 
-                    <div class="mb-3 ms-4" id="divPeriodoIva" style="display:none;">
-                        <select class="form-select form-select-sm" name="periodoIva">
-                            <option value="Bimestral">Bimestral</option>
-                            <option value="Cuatrimestral">Cuatrimestral</option>
-                        </select>
-                    </div>
+                        <div class="form-check form-switch mb-2 p-3 bg-light rounded">
+                            <input class="form-check-input" type="checkbox" name="aplicaRete">
+                            <label class="form-check-label fw-bold">Autoretenedor</label>
+                        </div>
 
-                    <div class="form-check form-switch mb-2">
-                        <input class="form-check-input" type="checkbox" name="aplicaRete">
-                        <label class="form-check-label">Agente Retenedor</label>
-                    </div>
+                        <div class="form-check form-switch mb-4 p-3 bg-light rounded">
+                            <input class="form-check-input" type="checkbox" name="aplicaIca">
+                            <label class="form-check-label fw-bold">Aplica ICA</label>
+                        </div>
 
-                    <div class="form-check form-switch mb-4">
-                        <input class="form-check-input" type="checkbox" name="aplicaIca">
-                        <label class="form-check-label">Aplica ICA</label>
-                    </div>
-
-                    <button type="submit" class="btn btn-vdh">GUARDAR DATOS</button>
-                </form>
+                        <button type="submit" class="btn btn-vdh btn-lg shadow">GUARDAR CLIENTE</button>
+                    </form>
+                </div>
             </div>
         </div>
+
+        <div id="section-dashboard" class="d-none fade-in">
+            <h5 class="mb-3 text-secondary">Estado de Vencimientos</h5>
+            <button class="btn btn-sm btn-outline-primary mb-3 w-100" onclick="cargarDashboard()">🔄 Actualizar Lista</button>
+            
+            <div id="dashboard-content">
+                <div class="text-center text-muted mt-5">
+                    <i class="bi bi-cloud-download fs-1"></i>
+                    <p>Dale clic a Actualizar para ver los datos.</p>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <div class="loading-overlay" id="loader">
         <div class="spinner"></div>
-        <p class="mt-3 text-primary fw-bold">Sincronizando con Base de Datos...</p>
+        <p class="mt-3 text-primary fw-bold" id="loader-text">Procesando...</p>
     </div>
 
     <script src="app.js"></script>
     <script>
-        // Registrar Service Worker para PWA
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./sw.js')
-                .then(() => console.log('Service Worker Registrado'));
+            navigator.serviceWorker.register('./sw.js');
         }
     </script>
 </body>
