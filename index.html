@@ -18,12 +18,10 @@
     <nav class="navbar fixed-bottom navbar-light bg-light d-md-none border-top shadow-lg">
         <div class="container-fluid justify-content-around">
             <a class="nav-link text-center active-nav" href="#" onclick="showSection('crear', this)">
-                <i class="bi bi-person-plus-fill fs-3 d-block"></i>
-                <small>Nuevo</small>
+                <i class="bi bi-person-plus-fill fs-3 d-block"></i> <small>Nuevo</small>
             </a>
             <a class="nav-link text-center" href="#" onclick="showSection('dashboard', this)">
-                <i class="bi bi-list-check fs-3 d-block"></i>
-                <small>Estado</small>
+                <i class="bi bi-list-check fs-3 d-block"></i> <small>Estado</small>
             </a>
         </div>
     </nav>
@@ -41,10 +39,7 @@
     <header class="app-header d-md-none text-center">
         <h5 class="brand-title m-0">VDH CONTABLE</h5>
     </header>
-
-    <div id="install-banner">
-        📲 Instalar App
-    </div>
+    <div id="install-banner">📲 Instalar App</div>
 
     <div class="container mt-4 mb-5 pb-5">
         
@@ -56,7 +51,7 @@
                 <div class="card-body">
                     <form id="formCliente">
                         <div class="mb-3">
-                            <label class="form-label fw-bold text-muted">Razón Social / Nombre</label>
+                            <label class="form-label fw-bold text-muted">Razón Social</label>
                             <input type="text" class="form-control" name="razonSocial" required placeholder="Nombre del Cliente">
                         </div>
                         
@@ -74,7 +69,17 @@
                         <div class="mb-3 bg-light p-2 rounded border border-warning">
                             <label class="form-label fw-bold text-dark">📅 Fecha Inicio Actividades</label>
                             <input type="date" class="form-control" name="fechaConstitucion" required>
-                            <div class="form-text text-muted">Vital para evitar alertas de impuestos viejos.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-muted">Ciudad / Municipio</label>
+                            <select class="form-select" name="ciudad" required>
+                                <option value="Barranquilla">Barranquilla</option>
+                                <option value="Bogota">Bogotá</option>
+                                <option value="Medellin">Medellín</option>
+                                <option value="Cali">Cali</option>
+                                <option value="Soledad">Soledad</option>
+                            </select>
                         </div>
 
                         <div class="mb-3">
@@ -96,17 +101,16 @@
                                 <select class="form-select" name="regimen">
                                     <option value="Ordinario">Ordinario</option>
                                     <option value="Simple">Simple (RST)</option>
-                                    <option value="No Responsable">No Resp. IVA</option>
                                 </select>
                             </div>
                         </div>
 
                         <hr class="border-secondary">
-                        <h6 class="text-primary fw-bold mb-3"><i class="bi bi-file-earmark-text"></i> Obligaciones Tributarias</h6>
+                        <h6 class="text-primary fw-bold mb-3">Obligaciones Tributarias</h6>
                         
                         <div class="list-group mb-4 shadow-sm">
                             <label class="list-group-item d-flex justify-content-between align-items-center p-3">
-                                <div><span class="fw-bold text-dark">Aplica Renta</span><div class="small text-muted">Declaración anual</div></div>
+                                <div><span class="fw-bold text-dark">Aplica Renta</span></div>
                                 <div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" name="aplicaRenta" checked style="transform: scale(1.3);"></div>
                             </label>
 
@@ -116,7 +120,6 @@
                                     <div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" name="aplicaIva" id="checkIva" style="transform: scale(1.3);"></div>
                                 </div>
                                 <div class="mt-3 w-100 ps-3 border-start border-4 border-warning" id="divPeriodoIva" style="display:none;">
-                                    <label class="small fw-bold text-warning mb-1">Frecuencia IVA:</label>
                                     <select class="form-select bg-light" name="periodoIva">
                                         <option value="Bimestral">Bimestral</option>
                                         <option value="Cuatrimestral">Cuatrimestral</option>
@@ -146,12 +149,10 @@
             <button class="btn btn-sm btn-outline-primary mb-3 w-100" onclick="cargarDashboard()">🔄 Actualizar Lista</button>
             <div id="dashboard-content"><div class="text-center text-muted mt-5"><i class="bi bi-cloud-download fs-1"></i><p>Actualizando...</p></div></div>
         </div>
-
     </div>
 
     <div class="loading-overlay" id="loader">
-        <div class="spinner"></div>
-        <p class="mt-3 text-primary fw-bold" id="loader-text">Procesando...</p>
+        <div class="spinner"></div><p class="mt-3 text-primary fw-bold" id="loader-text">Procesando...</p>
     </div>
 
     <div class="modal fade" id="modalCalendario" tabindex="-1" aria-hidden="true">
@@ -162,16 +163,8 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body bg-light">
-                    <div id="modal-loader" class="text-center py-4">
-                        <div class="spinner-border text-primary" role="status"></div>
-                        <p class="mt-2">Consultando calendario...</p>
-                    </div>
-                    <div id="modal-content-body" style="display:none;">
-                        <div class="list-group" id="listaFechas"></div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <div id="modal-loader" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></div>
+                    <div id="modal-content-body" style="display:none;"><div class="list-group" id="listaFechas"></div></div>
                 </div>
             </div>
         </div>
