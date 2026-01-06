@@ -1,64 +1,53 @@
 /**
- * VDH CONTABLE APP PRO v5.0
+ * VDH CONTABLE APP PRO v6.0
  * Author: Gemini Architect
  */
 
-// ⚠️ PEGA AQUÍ LA URL ACTUALIZADA DE TU SCRIPT (v5.0)
+// ⚠️ PEGA AQUÍ LA URL ACTUALIZADA DE TU SCRIPT
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbznKirsEMFmcddNNm7nocumAT3hfGs_qul4bsY3MDI0FOE_SvS18_CP1RO97WnljlYT1g/exec"; 
 
 // ==========================================
 // 1. NAVEGACIÓN Y UI
 // ==========================================
 function showSection(sectionId, navElement) {
-    // Ocultar todas las secciones
     document.getElementById('section-crear').classList.add('d-none');
     document.getElementById('section-dashboard').classList.add('d-none');
-    
-    // Mostrar la sección seleccionada
     document.getElementById('section-' + sectionId).classList.remove('d-none');
 
-    // Manejar navegación móvil visual (resaltar botón activo)
     if(navElement) {
         document.querySelectorAll('.fixed-bottom .nav-link').forEach(el => el.classList.remove('active-nav'));
         navElement.classList.add('active-nav');
     }
 
-    // Si entramos al Dashboard, cargar datos automáticamente
     if(sectionId === 'dashboard') {
         cargarDashboard();
     }
 }
 
 // ==========================================
-// 2. LÓGICA DE FORMULARIO (CREAR CLIENTE)
+// 2. LÓGICA DE FORMULARIO
 // ==========================================
-
-// Cálculo automático del Dígito de Verificación (DV)
 document.getElementById('nit').addEventListener('input', function(e) {
     let nit = e.target.value;
     if(nit.length > 0) document.getElementById('dv_calc').value = calcularDV(nit);
 });
 
-// Mostrar/Ocultar periodo de IVA según el switch
 document.getElementById('checkIva').addEventListener('change', function(e) {
     document.getElementById('divPeriodoIva').style.display = e.target.checked ? 'block' : 'none';
 });
 
-// Envio del Formulario
 document.getElementById('formCliente').addEventListener('submit', function(e) {
     e.preventDefault();
     showLoader("Guardando Cliente...");
-    
     const form = e.target;
     
-    // Construcción del objeto con TODOS los campos (incluyendo Ciudad y Fecha)
     const payload = {
         razonSocial: form.razonSocial.value,
         nit: form.nit.value,
         dv: form.dv.value,
         celular: form.celular.value,
         fechaConstitucion: form.fechaConstitucion.value, 
-        ciudad: form.ciudad.value, // <--- NUEVO CAMPO v5.0
+        ciudad: form.ciudad.value, 
         tipoPersona: form.tipoPersona.value,
         regimen: form.regimen.value,
         aplicaRenta: form.aplicaRenta.checked,
@@ -73,21 +62,18 @@ document.getElementById('formCliente').addEventListener('submit', function(e) {
             hideLoader();
             alert("✅ Cliente guardado con éxito");
             form.reset();
-            // Resetear fecha a hoy por comodidad
             document.querySelector('input[name="fechaConstitucion"]').valueAsDate = new Date();
-            // Resetear ciudad por defecto
             form.ciudad.value = "Barranquilla";
-            // Ocultar submenú de IVA
             document.getElementById('divPeriodoIva').style.display = 'none';
         })
         .catch(err => {
             hideLoader();
-            alert("❌ Error al guardar: " + err);
+            alert("❌ Error: " + err);
         });
 });
 
 // ==========================================
-// 3. LÓGICA DEL DASHBOARD (LEER DATOS)
+// 3. LÓGICA DASHBOARD
 // ==========================================
 function cargarDashboard() {
     showLoader("Analizando vencimientos...");
@@ -105,7 +91,6 @@ function cargarDashboard() {
 
             let html = "";
             data.forEach(item => {
-                // Definir estilos según estado
                 let cardClass = "border-secondary"; 
                 let badgeClass = "bg-secondary";
 
@@ -117,14 +102,12 @@ function cargarDashboard() {
                     badgeClass = "bg-success";
                 }
 
-                // Datos para usar en el modal
                 let nombreCliente = item.cliente;
                 let uuid = item.uuid;
                 let impuesto = item.impuesto;
-                let impuestoBase = item.nombreImpuestoBase || "Impuesto"; // Para buscar en el calendario
+                let impuestoBase = item.nombreImpuestoBase || "Impuesto";
                 let ciudadCliente = item.ciudad || "";
 
-                // Acción al hacer click: Abrir Modal
                 let clickAction = "";
                 if (item.estado !== "NEUTRO") {
                     clickAction = `onclick="verCalendario('${uuid}', '${impuestoBase}', '${nombreCliente}')" style="cursor:pointer"`;
@@ -155,17 +138,16 @@ function cargarDashboard() {
         })
         .catch(err => {
             hideLoader();
-            container.innerHTML = `<div class="alert alert-danger">Error de conexión: ${err}</div>`;
+            container.innerHTML = `<div class="alert alert-danger">Error: ${err}</div>`;
         });
 }
 
 // ==========================================
-// 4. LÓGICA DEL MODAL (CALENDARIO ANUAL)
+// 4. LÓGICA MODAL
 // ==========================================
-let modalBootstrap; // Instancia global del modal
+let modalBootstrap; 
 
 function verCalendario(uuid, impuestoBase, nombreCliente) {
-    // 1. Mostrar Modal y Loader interno
     const modalEl = document.getElementById('modalCalendario');
     modalBootstrap = new bootstrap.Modal(modalEl);
     modalBootstrap.show();
@@ -174,16 +156,14 @@ function verCalendario(uuid, impuestoBase, nombreCliente) {
     document.getElementById('modal-loader').style.display = 'block';
     document.getElementById('modal-content-body').style.display = 'none';
 
-    // 2. Pedir datos detallados al backend
     sendRequest("obtenerCalendarioAnual", {
         uuid: uuid,
         nombreImpuestoBase: impuestoBase
     }).then(response => {
         const fechas = response.data;
-        renderizarListaFechas(fechas, uuid); // Dibujar la lista
+        renderizarListaFechas(fechas, uuid); 
     }).catch(err => {
         alert("Error al cargar calendario: " + err);
-        // Cerrar modal si hay error grave
         modalBootstrap.hide();
     });
 }
@@ -196,25 +176,22 @@ function renderizarListaFechas(fechas, uuid) {
     lista.innerHTML = "";
 
     if (fechas.length === 0) {
-        lista.innerHTML = "<div class='p-3 text-center text-muted'>No se encontraron fechas programadas para este impuesto.</div>";
+        lista.innerHTML = "<div class='p-3 text-center text-muted'>No se encontraron fechas programadas.</div>";
         return;
     }
 
     let html = "";
     fechas.forEach(f => {
-        // Lógica visual de cada fila del calendario
         let icon = f.estado === "PRESENTADO" ? "bi-check-circle-fill text-success" : "bi-circle text-muted";
         let colorFecha = f.estado === "VENCIDO" ? "text-danger fw-bold" : "text-dark";
         let btnAction = "";
 
         if (f.estado === "PENDIENTE" || f.estado === "VENCIDO") {
-            // Botón para pagar
             btnAction = `<button class="btn btn-sm btn-outline-success ms-2" 
                 onclick="marcarDesdeModal(this, '${uuid}', '${f.descripcion}', '${f.fecha}', '${f.periodo}')">
                 Marcar Pago
             </button>`;
         } else {
-            // Etiqueta de pagado
             btnAction = `<span class="badge bg-success">Pagado</span>`;
         }
 
@@ -235,9 +212,8 @@ function renderizarListaFechas(fechas, uuid) {
 }
 
 function marcarDesdeModal(btn, uuid, impuesto, fecha, periodo) {
-    if(!confirm(`¿Confirmas que ya presentaste la obligación: ${impuesto} (${fecha})?`)) return;
+    if(!confirm(`¿Confirmas pago de: ${impuesto}?`)) return;
 
-    // Efecto visual inmediato (feedback usuario)
     btn.disabled = true;
     btn.innerText = "Procesando...";
 
@@ -247,26 +223,20 @@ function marcarDesdeModal(btn, uuid, impuesto, fecha, periodo) {
         fecha: fecha,
         periodo: periodo
     }).then(res => {
-        // Actualizar visualmente la fila a "Pagado"
         const fila = btn.parentElement;
         fila.innerHTML = `<span class="badge bg-success">Pagado</span>`;
-        
-        // Cambiar el icono de la izquierda a verde (buscamos en el padre del padre)
         const icono = fila.parentElement.querySelector('i.bi');
         if(icono) {
             icono.classList.remove('bi-circle', 'text-muted');
             icono.classList.add('bi-check-circle-fill', 'text-success');
         }
-
-        // Opcional: Recargar dashboard de fondo para que se refleje al cerrar
         cargarDashboard(); 
     });
 }
 
 // ==========================================
-// 5. UTILIDADES Y CONEXIÓN
+// 5. UTILIDADES
 // ==========================================
-
 async function sendRequest(action, payload) {
     const options = {
         method: "POST",
@@ -280,10 +250,8 @@ async function sendRequest(action, payload) {
         return json;
     } catch (e) {
         console.error(e);
-        // Fallback silencioso para escritura si falla CORS en algunos navegadores móviles
-        // (Solo si no estamos esperando datos de vuelta como en el dashboard)
         if (action !== "obtenerDashboard" && action !== "obtenerCalendarioAnual") return { status: "success" };
-        throw "Error de conexión. Intenta recargar la página.";
+        throw "Error de conexión. Intenta recargar.";
     }
 }
 
