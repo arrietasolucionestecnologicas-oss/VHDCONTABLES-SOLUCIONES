@@ -4,7 +4,7 @@
  */
 
 // ⚠️ PEGA AQUÍ LA URL ACTUALIZADA DE TU SCRIPT
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbznKirsEMFmcddNNm7nocumAT3hfGs_qul4bsY3MDI0FOE_SvS18_CP1RO97WnljlYT1g/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyuLoHmHExucot0kY8RVnrlGaS5dl9WSbQg8dv2Whd4fwzh3SEx-6JihhGlZmuVk8YgeQ/exec"; 
 
 // ==========================================
 // 1. NAVEGACIÓN Y UI
