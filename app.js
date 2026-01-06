@@ -13,21 +13,18 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbznKirsEMFmcddNNm7no
 // 1. NAVEGACIÓN Y UI
 // ==========================================
 function showSection(sectionId, navElement) {
-    // Ocultar todas
     document.getElementById('section-crear').classList.add('d-none');
     document.getElementById('section-dashboard').classList.add('d-none');
     
-    // Mostrar seleccionada
     document.getElementById('section-' + sectionId).classList.remove('d-none');
 
-    // Manejar navegación móvil visual
     if(navElement) {
         document.querySelectorAll('.fixed-bottom .nav-link').forEach(el => el.classList.remove('active-nav'));
         navElement.classList.add('active-nav');
     }
 
     if(sectionId === 'dashboard') {
-        cargarDashboard(); // Cargar datos automáticamente al entrar
+        cargarDashboard();
     }
 }
 
@@ -53,10 +50,7 @@ document.getElementById('formCliente').addEventListener('submit', function(e) {
         nit: form.nit.value,
         dv: form.dv.value,
         celular: form.celular.value,
-        
-        // NUEVO CAMPO IMPORTANTE
         fechaConstitucion: form.fechaConstitucion.value, 
-
         tipoPersona: form.tipoPersona.value,
         regimen: form.regimen.value,
         aplicaRenta: form.aplicaRenta.checked,
@@ -71,7 +65,6 @@ document.getElementById('formCliente').addEventListener('submit', function(e) {
             hideLoader();
             alert("✅ Cliente guardado con éxito");
             form.reset();
-            // Resetear fecha a hoy por comodidad
             document.querySelector('input[name="fechaConstitucion"]').valueAsDate = new Date();
             document.getElementById('divPeriodoIva').style.display = 'none';
         });
@@ -96,36 +89,45 @@ function cargarDashboard() {
 
             let html = "";
             data.forEach(item => {
-                // Definir colores según estado
-                let cardClass = item.estado === "PRESENTADO" ? "border-success" : "border-danger";
-                let badgeClass = item.estado === "PRESENTADO" ? "bg-success" : "bg-danger";
-                let btnAction = item.estado === "PENDIENTE" 
-                    ? `<button class="btn btn-sm btn-outline-success w-100 mt-2" onclick="marcarPresentado('${item.uuid}', '${item.impuesto}', '${item.fecha}', '${item.periodo}')">✅ Marcar como Presentado</button>` 
-                    : `<div class="text-success fw-bold text-center mt-2"><i class="bi bi-check-circle-fill"></i> Al día</div>`;
+                let cardClass = "border-secondary"; 
+                let badgeClass = "bg-secondary";
 
-                if (item.estado === "NEUTRO") {
-                    cardClass = "border-secondary";
-                    badgeClass = "bg-secondary";
-                    btnAction = "";
+                if(item.estado === "PENDIENTE") {
+                    cardClass = "border-danger";
+                    badgeClass = "bg-danger";
+                } else if(item.estado === "PRESENTADO") {
+                    cardClass = "border-success";
+                    badgeClass = "bg-success";
+                }
+
+                let nombreCliente = item.cliente;
+                let uuid = item.uuid;
+                let impuesto = item.impuesto;
+                let impuestoBase = item.nombreImpuestoBase || "Impuesto"; // Para buscar en el calendario
+
+                // ACCIÓN PRINCIPAL: ABRIR MODAL
+                // Al hacer clic en la tarjeta, llamamos a verCalendario()
+                let clickAction = "";
+                if (item.estado !== "NEUTRO") {
+                    clickAction = `onclick="verCalendario('${uuid}', '${impuestoBase}', '${nombreCliente}')" style="cursor:pointer"`;
                 }
 
                 html += `
-                <div class="card shadow-sm mb-3 ${cardClass}" style="border-left: 5px solid;">
+                <div class="card shadow-sm mb-3 ${cardClass}" ${clickAction}>
                     <div class="card-body py-2">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="m-0 fw-bold text-dark">${item.cliente}</h6>
+                            <h6 class="m-0 fw-bold text-dark text-truncate">${nombreCliente}</h6>
                             <span class="badge ${badgeClass}">${item.estado}</span>
                         </div>
                         <div class="small text-muted mb-1">
-                            <strong>Impuesto:</strong> ${item.impuesto} (${item.periodo})
+                            <strong>${impuesto}</strong>
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
                             <div class="text-danger fw-bold fs-5">
                                 <i class="bi bi-calendar-event"></i> ${item.fecha}
                             </div>
-                            <small class="text-secondary">NIT: ...${item.nit.slice(-3)}</small>
+                            <small class="text-secondary">Ver calendario <i class="bi bi-chevron-right"></i></small>
                         </div>
-                        ${btnAction}
                     </div>
                 </div>`;
             });
@@ -138,23 +140,98 @@ function cargarDashboard() {
         });
 }
 
-function marcarPresentado(uuid, impuesto, fecha, periodo) {
-    if(!confirm(`¿Confirmas que ya presentaste ${impuesto} para este cliente?`)) return;
+// ==========================================
+// 4. LÓGICA DEL MODAL (CALENDARIO ANUAL)
+// ==========================================
+let modalBootstrap; // Instancia del modal
 
-    showLoader("Actualizando base de datos...");
+function verCalendario(uuid, impuestoBase, nombreCliente) {
+    // 1. Mostrar Modal y Loader
+    const modalEl = document.getElementById('modalCalendario');
+    modalBootstrap = new bootstrap.Modal(modalEl);
+    modalBootstrap.show();
+
+    document.getElementById('modalTitle').innerText = `Calendario: ${nombreCliente}`;
+    document.getElementById('modal-loader').style.display = 'block';
+    document.getElementById('modal-content-body').style.display = 'none';
+
+    // 2. Pedir datos al backend
+    sendRequest("obtenerCalendarioAnual", {
+        uuid: uuid,
+        nombreImpuestoBase: impuestoBase
+    }).then(response => {
+        const fechas = response.data;
+        renderizarListaFechas(fechas, uuid); // Renderizar lista
+    }).catch(err => {
+        alert("Error al cargar calendario: " + err);
+    });
+}
+
+function renderizarListaFechas(fechas, uuid) {
+    document.getElementById('modal-loader').style.display = 'none';
+    document.getElementById('modal-content-body').style.display = 'block';
     
+    const lista = document.getElementById('listaFechas');
+    lista.innerHTML = "";
+
+    if (fechas.length === 0) {
+        lista.innerHTML = "<div class='p-3 text-center'>No se encontraron fechas programadas.</div>";
+        return;
+    }
+
+    let html = "";
+    fechas.forEach(f => {
+        let icon = f.estado === "PRESENTADO" ? "bi-check-circle-fill text-success" : "bi-circle text-muted";
+        let colorFecha = f.estado === "VENCIDO" ? "text-danger fw-bold" : "text-dark";
+        let btnAction = "";
+
+        if (f.estado === "PENDIENTE" || f.estado === "VENCIDO") {
+            btnAction = `<button class="btn btn-sm btn-outline-success ms-2" 
+                onclick="marcarDesdeModal(this, '${uuid}', '${f.descripcion}', '${f.fecha}', '${f.periodo}')">
+                Marcar Pago
+            </button>`;
+        } else {
+            btnAction = `<span class="badge bg-success">Pagado</span>`;
+        }
+
+        html += `
+        <div class="list-group-item d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <i class="bi ${icon} fs-4 me-3"></i>
+                <div>
+                    <div class="${colorFecha}">${f.fecha}</div>
+                    <small class="text-muted">${f.descripcion}</small>
+                </div>
+            </div>
+            <div>${btnAction}</div>
+        </div>`;
+    });
+
+    lista.innerHTML = html;
+}
+
+function marcarDesdeModal(btn, uuid, impuesto, fecha, periodo) {
+    if(!confirm(`¿Confirmas el pago de ${impuesto} (${fecha})?`)) return;
+
+    // Efecto visual inmediato
+    btn.disabled = true;
+    btn.innerText = "...";
+
     sendRequest("marcarPresentado", {
         uuid: uuid,
         impuesto: impuesto,
         fecha: fecha,
         periodo: periodo
     }).then(res => {
-        cargarDashboard(); // Recargar para ver el cambio a verde
+        // Recargar solo el modal (o cerrarlo)
+        btn.parentElement.innerHTML = `<span class="badge bg-success">Pagado</span>`;
+        // Opcional: Recargar dashboard de fondo
+        cargarDashboard(); 
     });
 }
 
 // ==========================================
-// 4. UTILIDADES
+// 5. UTILIDADES
 // ==========================================
 async function sendRequest(action, payload) {
     const options = {
@@ -169,8 +246,7 @@ async function sendRequest(action, payload) {
         return json;
     } catch (e) {
         console.error(e);
-        // Fallback para escritura si falla el CORS en algunos navegadores
-        if (action !== "obtenerDashboard") return { status: "success" };
+        if (action !== "obtenerDashboard" && action !== "obtenerCalendarioAnual") return { status: "success" };
         throw "Error de conexión. Intenta recargar.";
     }
 }
