@@ -4,7 +4,7 @@
  */
 
 // ⚠️ PEGA AQUÍ LA URL ACTUALIZADA
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyuLoHmHExucot0kY8RVnrlGaS5dl9WSbQg8dv2Whd4fwzh3SEx-6JihhGlZmuVk8YgeQ/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyubr3wxCftRobp80h3KUgzZymjqrnasvB5HaJfi81Hn3XDh0sP28uoIuOU3B46cPpP/exec"; 
 
 /**
  * VDH CONTABLE SYSTEM - FRONTEND SAAS
