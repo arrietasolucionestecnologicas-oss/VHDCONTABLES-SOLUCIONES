@@ -6,216 +6,296 @@
 // ⚠️ PEGA AQUÍ LA URL ACTUALIZADA
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyuLoHmHExucot0kY8RVnrlGaS5dl9WSbQg8dv2Whd4fwzh3SEx-6JihhGlZmuVk8YgeQ/exec"; 
 
-// --- (El resto de funciones showSection, formCliente se mantienen IGUALES que la v12.0) ---
-// Solo copia y pega esto si quieres el archivo completo, si no, solo actualiza verCalendario y renderizarListaFechas
+/**
+ * VDH CONTABLE SYSTEM - FRONTEND SAAS
+ * Versión: 4.0.0 (Producción)
+ */
 
-// ==========================================
-// 1. NAVEGACIÓN Y UI
-// ==========================================
-function showSection(sectionId, navElement) {
-    document.getElementById('section-crear').classList.add('d-none');
-    document.getElementById('section-dashboard').classList.add('d-none');
-    document.getElementById('section-' + sectionId).classList.remove('d-none');
-    if(navElement) {
-        document.querySelectorAll('.fixed-bottom .nav-link').forEach(el => el.classList.remove('active-nav'));
-        navElement.classList.add('active-nav');
+// --- ESTADO GLOBAL ---
+const state = {
+    dbId: null,          // ID del Excel del Cliente (Se llena al hacer login)
+    empresaNombre: null, 
+    trabajadores: [],
+    clientes: [],
+    tokenSesion: null
+};
+
+// --- NÚCLEO DE COMUNICACIÓN (BRIDGE) ---
+async function sendRequest(action, payload = {}) {
+    // Inyectamos automáticamente el ID de la base de datos si ya estamos logueados
+    if (state.dbId) {
+        payload.dbId = state.dbId;
     }
-    if(sectionId === 'dashboard') cargarDashboard();
-}
 
-function limpiarYMostrarCrear() {
-    const form = document.getElementById('formCliente');
-    form.reset();
-    document.getElementById('uuid_cliente').value = ""; 
-    document.querySelector('input[name="fechaConstitucion"]').valueAsDate = new Date();
-    document.getElementById('divPeriodoIva').style.display = 'none';
-    document.getElementById('tituloFormulario').innerHTML = '<i class="bi bi-person-plus"></i> Registrar Cliente';
-    const btn = document.getElementById('btnGuardar');
-    btn.innerText = 'GUARDAR CLIENTE'; btn.classList.remove('btn-warning'); btn.classList.add('btn-vdh');
-    document.getElementById('btnCancelarEdicion').classList.add('d-none');
-    showSection('crear');
-}
-
-// ==========================================
-// 2. LÓGICA DE FORMULARIO
-// ==========================================
-document.getElementById('nit').addEventListener('input', function(e) {
-    let nit = e.target.value;
-    if(nit.length > 0) document.getElementById('dv_calc').value = calcularDV(nit);
-});
-document.getElementById('checkIva').addEventListener('change', function(e) {
-    document.getElementById('divPeriodoIva').style.display = e.target.checked ? 'block' : 'none';
-});
-document.getElementById('formCliente').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const uuid = document.getElementById('uuid_cliente').value;
-    const isEditing = uuid !== "";
-    const action = isEditing ? "actualizarCliente" : "crearCliente";
-    showLoader(isEditing ? "Actualizando..." : "Guardando...");
-    const form = e.target;
-    const payload = {
-        uuid: uuid, razonSocial: form.razonSocial.value, nit: form.nit.value, dv: form.dv.value,
-        celular: form.celular.value, fechaConstitucion: form.fechaConstitucion.value, ciudad: form.ciudad.value, 
-        tipoPersona: form.tipoPersona.value, regimen: form.regimen.value,
-        aplicaRenta: form.aplicaRenta.checked, aplicaIva: form.aplicaIva.checked, periodoIva: form.periodoIva.value,
-        aplicaRete: form.aplicaRete.checked, aplicaIca: form.aplicaIca.checked
+    const options = { 
+        method: "POST", 
+        body: JSON.stringify({ action: action, payload: payload }) 
     };
-    sendRequest(action, payload).then(data => {
-        hideLoader(); alert("✅ " + data.message); limpiarYMostrarCrear();
-    }).catch(err => { hideLoader(); alert("❌ Error: " + err); });
-});
-
-// ==========================================
-// 3. LÓGICA DASHBOARD
-// ==========================================
-let datosClientesCache = {}; 
-function cargarDashboard() {
-    showLoader("Analizando vencimientos...");
-    const container = document.getElementById('dashboard-content');
-    sendRequest("obtenerDashboard", {}).then(response => {
-        hideLoader();
-        const data = response.data;
-        datosClientesCache = {}; 
-        if(!data || data.length === 0) { container.innerHTML = `<div class="alert alert-info text-center">No hay clientes activos.</div>`; return; }
-        let html = "";
-        data.forEach(item => {
-            datosClientesCache[item.uuid] = item.datosFull; 
-            let cardClass = "border-secondary"; let badgeClass = "bg-secondary";
-            if(item.estado === "PENDIENTE") { cardClass = "border-danger"; badgeClass = "bg-danger"; }
-            else if(item.estado === "PRESENTADO") { cardClass = "border-success"; badgeClass = "bg-success"; }
-            
-            let clickAction = "";
-            if (item.estado !== "NEUTRO") clickAction = `onclick="verCalendario('${item.uuid}', '${item.cliente}')" style="cursor:pointer"`;
-
-            html += `
-            <div class="card shadow-sm mb-3 ${cardClass}">
-                <div class="card-body py-2">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h6 class="m-0 fw-bold text-dark text-truncate" style="max-width: 60%;">${item.cliente}</h6>
-                        <button class="btn btn-sm btn-light border" onclick="cargarDatosEdicion('${item.uuid}')">✏️ Editar</button>
-                    </div>
-                    <div ${clickAction}>
-                        <div class="small text-muted mb-1 d-flex justify-content-between">
-                            <span><span class="badge ${badgeClass}">${item.estado}</span> <strong>${item.impuesto}</strong></span>
-                        </div>
-                        <div class="d-flex justify-content-between align-items-center mt-2">
-                            <div class="text-danger fw-bold fs-5"><i class="bi bi-calendar-event"></i> ${item.fecha}</div>
-                            <small class="text-secondary">Ver todo el año <i class="bi bi-chevron-right"></i></small>
-                        </div>
-                    </div>
-                </div>
-            </div>`;
-        });
-        container.innerHTML = html;
-    }).catch(err => { hideLoader(); container.innerHTML = `<div class="alert alert-danger">Error: ${err}</div>`; });
-}
-
-function cargarDatosEdicion(uuid) {
-    const data = datosClientesCache[uuid];
-    if(!data) return;
-    const form = document.getElementById('formCliente');
-    document.getElementById('uuid_cliente').value = uuid;
-    form.razonSocial.value = data.razon; form.nit.value = data.nit; document.getElementById('dv_calc').value = data.dv;
-    form.celular.value = data.celular; form.fechaConstitucion.value = data.fechaConst ? data.fechaConst.substring(0,10) : "";
-    form.ciudad.value = data.ciudad || "Barranquilla"; form.tipoPersona.value = data.tipo; form.regimen.value = data.regimen;
-    form.aplicaRenta.checked = data.renta; form.aplicaIva.checked = data.iva;
-    form.aplicaRete.checked = data.rete; form.aplicaIca.checked = data.ica;
-    document.getElementById('divPeriodoIva').style.display = data.iva ? 'block' : 'none';
-    form.periodoIva.value = data.perIva;
-    document.getElementById('tituloFormulario').innerHTML = '<i class="bi bi-pencil-square"></i> Editar Cliente';
-    const btn = document.getElementById('btnGuardar');
-    btn.innerText = 'ACTUALIZAR CLIENTE'; btn.classList.remove('btn-vdh'); btn.classList.add('btn-warning');
-    document.getElementById('btnCancelarEdicion').classList.remove('d-none');
-    showSection('crear');
-}
-
-// ==========================================
-// 4. LÓGICA MODAL (VISTA UNIFICADA)
-// ==========================================
-let modalBootstrap; 
-function verCalendario(uuid, nombreCliente) {
-    const modalEl = document.getElementById('modalCalendario');
-    modalBootstrap = new bootstrap.Modal(modalEl);
-    modalBootstrap.show();
-    document.getElementById('modalTitle').innerText = `Calendario: ${nombreCliente}`;
-    document.getElementById('modal-loader').style.display = 'block';
-    document.getElementById('modal-content-body').style.display = 'none';
-    // Nota: Ya no enviamos 'nombreImpuestoBase', el backend buscará TODO
-    sendRequest("obtenerCalendarioAnual", { uuid: uuid }).then(response => {
-        renderizarListaFechas(response.data, uuid); 
-    }).catch(err => { alert("Error: " + err); modalBootstrap.hide(); });
-}
-
-function renderizarListaFechas(fechas, uuid) {
-    document.getElementById('modal-loader').style.display = 'none';
-    document.getElementById('modal-content-body').style.display = 'block';
-    const lista = document.getElementById('listaFechas');
-    lista.innerHTML = "";
-    if (fechas.length === 0) { lista.innerHTML = "<div class='p-3 text-center'>Sin fechas.</div>"; return; }
     
-    let html = "";
-    fechas.forEach(f => {
-        let icon = f.estado === "PRESENTADO" ? "bi-check-circle-fill text-success" : "bi-circle text-muted";
-        let colorFecha = f.estado === "VENCIDO" ? "text-danger fw-bold" : "text-dark";
-        // Etiquetas para distinguir impuestos
-        let badgeTipo = `<span class="badge bg-light text-dark border me-1">${f.tipo}</span>`;
-        if(f.tipo === "IVA") badgeTipo = `<span class="badge bg-primary me-1">IVA</span>`;
-        if(f.tipo.includes("Renta")) badgeTipo = `<span class="badge bg-warning text-dark me-1">RENTA</span>`;
-        if(f.tipo.includes("ICA")) badgeTipo = `<span class="badge bg-info text-dark me-1">ICA</span>`;
-
-        let btnAction = (f.estado === "PENDIENTE" || f.estado === "VENCIDO") 
-            ? `<button class="btn btn-sm btn-outline-success ms-2" onclick="marcarDesdeModal(this, '${uuid}', '${f.descripcion}', '${f.fecha}', '${f.periodo}')">Pagar</button>`
-            : `<span class="badge bg-success">Pagado</span>`;
-            
-        html += `
-        <div class="list-group-item d-flex justify-content-between align-items-center">
-            <div class="d-flex align-items-center">
-                <i class="bi ${icon} fs-4 me-3"></i>
-                <div>
-                    <div class="${colorFecha}">${f.fecha}</div>
-                    <div class="mt-1">${badgeTipo} <small class="text-muted">${f.descripcion}</small></div>
-                </div>
-            </div>
-            <div>${btnAction}</div>
-        </div>`;
-    });
-    lista.innerHTML = html;
-}
-
-function marcarDesdeModal(btn, uuid, impuesto, fecha, periodo) {
-    if(!confirm(`¿Confirmar pago de: ${impuesto}?`)) return;
-    btn.disabled = true; btn.innerText = "...";
-    sendRequest("marcarPresentado", { uuid: uuid, impuesto: impuesto, fecha: fecha, periodo: periodo }).then(res => {
-        btn.parentElement.innerHTML = `<span class="badge bg-success">Pagado</span>`;
-        cargarDashboard(); 
-    });
-}
-
-// ==========================================
-// 5. UTILIDADES
-// ==========================================
-async function sendRequest(action, payload) {
-    const options = { method: "POST", body: JSON.stringify({ action: action, payload: payload }) };
     try {
-        const response = await fetch(SCRIPT_URL, options);
+        const response = await fetch(CONFIG.API_URL, options);
         const json = await response.json();
-        if(json.status === "error") throw json.message;
         return json;
     } catch (e) {
-        console.error(e);
-        if (action !== "obtenerDashboard" && action !== "obtenerCalendarioAnual") return { status: "success", message: "Operación encolada" };
-        throw "Error de conexión.";
+        console.error("Error crítico:", e);
+        throw "No se pudo conectar con el Servidor Central.";
     }
 }
-function calcularDV(nit) {
-    if (!nit || isNaN(nit)) return "";
-    let vpri = [3, 7, 13, 17, 19, 23, 29, 37, 41, 43, 47, 53, 59, 67, 71];
-    let x = 0, y = 0, z = nit.length;
-    for (let i = 0; i < z; i++) { y = nit.substr(i, 1); x += (y * vpri[z - i - 1]); }
-    y = x % 11; return (y > 1) ? 11 - y : y;
-}
-function showLoader(txt) {
-    document.getElementById('loader-text').innerText = txt;
-    document.getElementById('loader').style.display = 'flex';
-}
-function hideLoader() { document.getElementById('loader').style.display = 'none'; }
+
+// --- APLICACIÓN PRINCIPAL ---
+const app = {
+    init: function() {
+        console.log("VDH SaaS Iniciado");
+        
+        // Listeners
+        const btnLogin = document.getElementById('btn-login-action');
+        if(btnLogin) btnLogin.addEventListener('click', () => this.login());
+
+        const formHoras = document.getElementById('form-horas');
+        if(formHoras) formHoras.addEventListener('submit', (e) => this.guardarHoras(e));
+
+        // Arrancar en Login
+        this.verificarSesion();
+    },
+
+    verificarSesion: function() {
+        this.mostrarPantalla('view-login');
+        this.cargarListaEmpresas();
+    },
+
+    mostrarPantalla: function(viewId) {
+        document.querySelectorAll('.app-view').forEach(el => el.classList.add('d-none'));
+        const target = document.getElementById(viewId);
+        if(target) target.classList.remove('d-none');
+    },
+
+    toggleLoader: function(show) {
+        const el = document.getElementById('loader');
+        if(el) show ? el.classList.remove('d-none') : el.classList.add('d-none');
+    },
+
+    mostrarToast: function(msg, type='success') {
+        const toastEl = document.getElementById('liveToast');
+        if(toastEl) {
+            document.getElementById('toast-message').innerText = msg;
+            const bsToast = new bootstrap.Toast(toastEl);
+            bsToast.show();
+        } else {
+            alert(msg);
+        }
+    },
+
+    // --- MÓDULO DE LOGIN ---
+
+    cargarListaEmpresas: function() {
+        this.toggleLoader(true);
+        sendRequest("get_empresas_list").then(json => {
+            if(json.status === 'success') {
+                const sel = document.getElementById('login-empresa-select');
+                sel.innerHTML = '<option value="" selected disabled>Seleccione su Empresa...</option>';
+                
+                if(json.data.length === 0) {
+                     sel.innerHTML = '<option disabled>No hay empresas activas</option>';
+                }
+
+                json.data.forEach(emp => {
+                    let opt = document.createElement('option');
+                    opt.value = emp.id;
+                    opt.text = emp.nombre;
+                    sel.appendChild(opt);
+                });
+            } else {
+                console.error("Error cargando empresas:", json);
+            }
+        }).catch(err => {
+            console.error(err);
+            alert("Error de conexión. Revise la consola.");
+        }).finally(() => this.toggleLoader(false));
+    },
+
+    login: function() {
+        const empresaId = document.getElementById('login-empresa-select').value;
+        const token = document.getElementById('login-token').value;
+
+        if(!empresaId || !token) return alert("Seleccione empresa e ingrese el Token.");
+
+        this.toggleLoader(true);
+        sendRequest("login_empresa", { empresaId, token }).then(json => {
+            if(json.status === 'success') {
+                // LOGIN EXITOSO
+                state.dbId = json.data.dbId;
+                state.empresaNombre = json.data.nombre;
+                
+                // Actualizar UI
+                document.getElementById('nav-empresa-label').innerText = state.empresaNombre;
+                this.mostrarPantalla('view-digitador');
+                
+                // Cargar datos de la empresa seleccionada
+                this.fetchMetadata();
+            } else {
+                alert("❌ Acceso denegado: " + json.message);
+            }
+        }).catch(e => alert(e))
+          .finally(() => this.toggleLoader(false));
+    },
+
+    logout: function() {
+        state.dbId = null;
+        state.empresaNombre = null;
+        document.getElementById('login-token').value = "";
+        this.mostrarPantalla('view-login');
+    },
+
+    // --- MÓDULO DE OPERACIÓN ---
+    
+    // Navegación
+    irADigitador: function() { this.mostrarPantalla('view-digitador'); },
+    
+    irAContador: function() { 
+        // Aquí podrías pedir otro PIN si quisieras seguridad extra para el contador
+        this.mostrarPantalla('view-contador');
+        this.cargarReporteContador();
+    },
+
+    fetchMetadata: function() {
+        this.toggleLoader(true);
+        sendRequest("get_metadata").then(json => {
+            if (json.status === 'success') {
+                state.trabajadores = json.data.empleados;
+                state.clientes = json.data.clientes;
+                // Configuración opcional
+                if(json.data.config) this.renderConfig(json.data.config);
+                
+                this.renderListas();
+            }
+        }).finally(() => this.toggleLoader(false));
+    },
+
+    renderListas: function() {
+        this.llenarSelect('inputTrabajador', state.trabajadores);
+        this.llenarSelect('inputCliente', state.clientes);
+    },
+
+    llenarSelect: function(id, array) {
+        const sel = document.getElementById(id);
+        if(!sel) return;
+        sel.innerHTML = '<option value="" selected disabled>Seleccione...</option>';
+        if(array) {
+            array.forEach(item => {
+                let opt = document.createElement('option');
+                opt.value = item;
+                opt.text = item;
+                sel.appendChild(opt);
+            });
+        }
+    },
+
+    guardarHoras: function(e) {
+        e.preventDefault();
+        this.toggleLoader(true);
+        
+        const datos = {
+            registros: [{
+                trabajador: document.getElementById('inputTrabajador').value,
+                fecha: document.getElementById('inputFecha').value,
+                cliente: document.getElementById('inputCliente').value,
+                trabajo: document.getElementById('inputActividad').value,
+                entrada: document.getElementById('inputEntrada').value,
+                salida: document.getElementById('inputSalida').value,
+                almuerzo: document.getElementById('checkAlmuerzo').checked
+            }]
+        };
+
+        sendRequest("registrar_horas", datos).then(json => {
+            if(json.status === 'success') {
+                this.mostrarToast("Registro guardado en: " + state.empresaNombre);
+                document.getElementById('form-horas').reset();
+                document.getElementById('inputFecha').valueAsDate = new Date();
+            } else { 
+                alert("Error: " + json.message); 
+            }
+        }).finally(() => this.toggleLoader(false));
+    },
+
+    // --- MÓDULO CONTADOR ---
+    cargarReporteContador: function() {
+        // Reutilizamos la misma lógica de "registrar_horas" pero pidiendo reporte
+        // En este ejemplo simple, asumimos que "get_metadata" ya traía config, 
+        // faltaría implementar 'obtener_reporte_full' en el backend si se requiere la tabla.
+        // Por ahora, solo configuración:
+        // (Dejamos el espacio listo para cuando quieras la tabla de aprobaciones)
+    },
+
+    renderConfig: function(cfg) {
+        if(!cfg) return;
+        if(cfg.HORA_NOCTURNA_INICIO) {
+            const el = document.getElementById('conf-noc-ini');
+            if(el) el.value = cfg.HORA_NOCTURNA_INICIO;
+        }
+        if(cfg.HORA_NOCTURNA_FIN) {
+            const el = document.getElementById('conf-noc-fin');
+            if(el) el.value = cfg.HORA_NOCTURNA_FIN;
+        }
+        if(cfg.RECARGO_NOCTURNO) {
+            const el = document.getElementById('conf-rec-noc');
+            if(el) el.value = cfg.RECARGO_NOCTURNO;
+        }
+    },
+
+    guardarConfiguracion: function() {
+        this.toggleLoader(true);
+        const data = {
+            hora_noc_ini: document.getElementById('conf-noc-ini').value,
+            hora_noc_fin: document.getElementById('conf-noc-fin').value,
+            recargo_noc: document.getElementById('conf-rec-noc').value
+        };
+        sendRequest("guardar_config", data).then(() => {
+            this.mostrarToast("Parámetros actualizados para: " + state.empresaNombre);
+        }).finally(() => this.toggleLoader(false));
+    }
+};
+
+// --- MODALES ---
+const modals = {
+    nuevoTrabajador: () => {
+        const m = new bootstrap.Modal(document.getElementById('modalTrabajador'));
+        m.show();
+    },
+    
+    guardarTrabajador: () => {
+        const nombre = document.getElementById('new-worker-name').value;
+        const salario = document.getElementById('new-worker-salary').value;
+        if(nombre && salario) {
+            app.toggleLoader(true);
+            sendRequest("crear_trabajador", { nombre, salario }).then(() => {
+                app.mostrarToast("Trabajador creado");
+                bootstrap.Modal.getInstance(document.getElementById('modalTrabajador')).hide();
+                app.fetchMetadata(); // Recargar listas
+            }).finally(() => app.toggleLoader(false));
+        }
+    },
+
+    nuevoCliente: () => {
+        const m = new bootstrap.Modal(document.getElementById('modalCliente'));
+        m.show();
+    },
+
+    guardarCliente: () => {
+        const nombre = document.getElementById('new-client-name').value;
+        if(nombre) {
+            app.toggleLoader(true);
+            sendRequest("crear_cliente", { nombre }).then(() => {
+                app.mostrarToast("Cliente creado");
+                bootstrap.Modal.getInstance(document.getElementById('modalCliente')).hide();
+                app.fetchMetadata(); // Recargar listas
+            }).finally(() => app.toggleLoader(false));
+        }
+    }
+};
+
+// Exponer globalmente
+window.app = app;
+window.modals = modals;
+
+// Iniciar al cargar
+document.addEventListener('DOMContentLoaded', () => app.init());
