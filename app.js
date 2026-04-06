@@ -249,17 +249,20 @@ function abrirCalendarioGlobal() {
         modalGlobalBootstrap = new bootstrap.Modal(modalEl);
     }
     
+    // 1. Mostrar modal y loader inmediatamente
     modalGlobalBootstrap.show();
     document.getElementById('modal-loader-global').style.display = 'block';
     document.getElementById('calendar-global-view').style.display = 'none';
 
     sendRequest("obtenerCalendarioGlobal", {}).then(res => {
-        if(!res.data) throw "El servidor devolvió null al solicitar Calendario Global.";
+        if(!res.data) throw "Error de servidor al cargar Calendario Global.";
         
+        // 2. Extraer y mapear datos
         const eventosGlobales = res.data.map(f => {
             let eventColor = '#c59d5f'; 
             if (f.estado === 'VENCIDO') eventColor = '#dc3545'; 
             if (f.estado === 'PRESENTADO') eventColor = '#198754'; 
+            
             const parts = f.fecha.split('/');
             return {
                 title: `${f.cliente} - ${f.descripcion}`,
@@ -269,30 +272,42 @@ function abrirCalendarioGlobal() {
             };
         });
 
+        // 3. Quitar loader y poner contenedor visible antes de inicializar
         document.getElementById('modal-loader-global').style.display = 'none';
         const calendarEl = document.getElementById('calendar-global-view');
         calendarEl.style.display = 'block'; 
         
-        if (calendarGlobalInstance) calendarGlobalInstance.destroy();
+        if (calendarGlobalInstance) {
+            calendarGlobalInstance.destroy();
+            calendarGlobalInstance = null;
+        }
 
+        // 4. Inicializar con altura en pixeles estáticos (evita colapso a 0px)
         calendarGlobalInstance = new FullCalendar.Calendar(calendarEl, {
             initialView: 'dayGridMonth', 
             locale: 'es', 
             buttonText: { today: 'Hoy', month: 'Mes', list: 'Agenda' },
             headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,listMonth' },
             events: eventosGlobales, 
-            height: '70vh', 
+            height: 550, // FIX CRÍTICO: 550px en lugar de '70vh'
             eventClick: function(info) {
                 const p = info.event.extendedProps;
                 alert(`CLIENTE: ${p.cliente}\nIMPUESTO: ${p.impuesto}\nESTADO: ${p.estado}`);
             }
         });
         
-        // FIX DE RENDERIZADO: Esperar a que Bootstrap termine su animación visual (300ms)
-        setTimeout(() => { 
+        // 5. FIX DE RENDERIZADO (RACE CONDITION)
+        // Solo dibujamos cuando el modal de Bootstrap ha terminado su animación CSS.
+        if (modalEl.classList.contains('show')) {
             calendarGlobalInstance.render();
-            calendarGlobalInstance.updateSize(); 
-        }, 300);
+            calendarGlobalInstance.updateSize();
+        } else {
+            modalEl.addEventListener('shown.bs.modal', function onModalShown() {
+                calendarGlobalInstance.render();
+                calendarGlobalInstance.updateSize();
+                modalEl.removeEventListener('shown.bs.modal', onModalShown);
+            });
+        }
 
     }).catch(err => { 
         alert("Error cargando Calendario Global: " + err); 
