@@ -145,7 +145,7 @@ function verCalendario(uuid, nombreCliente) {
     document.getElementById('vista-toggle-container').style.display = 'none';
     
     sendRequest("obtenerCalendarioAnual", { uuid: uuid }).then(res => {
-        if(!res.data) throw "El servidor devolvió null al solicitar el calendario anual.";
+        if(!res.data) throw "Error de servidor al cargar las fechas.";
         cacheFechasModal = res.data; cacheUuidModal = uuid;
         document.getElementById('modal-loader').style.display = 'none';
         document.getElementById('vista-toggle-container').style.display = 'block';
@@ -248,25 +248,18 @@ function abrirCalendarioGlobal() {
     if (!modalGlobalBootstrap) {
         modalGlobalBootstrap = new bootstrap.Modal(modalEl);
     }
-    modalGlobalBootstrap.show();
     
+    modalGlobalBootstrap.show();
     document.getElementById('modal-loader-global').style.display = 'block';
     document.getElementById('calendar-global-view').style.display = 'none';
 
     sendRequest("obtenerCalendarioGlobal", {}).then(res => {
-        document.getElementById('modal-loader-global').style.display = 'none';
-        document.getElementById('calendar-global-view').style.display = 'block';
-        
         if(!res.data) throw "El servidor devolvió null al solicitar Calendario Global.";
-        
-        const calendarEl = document.getElementById('calendar-global-view');
-        if (calendarGlobalInstance) calendarGlobalInstance.destroy();
         
         const eventosGlobales = res.data.map(f => {
             let eventColor = '#c59d5f'; 
             if (f.estado === 'VENCIDO') eventColor = '#dc3545'; 
             if (f.estado === 'PRESENTADO') eventColor = '#198754'; 
-            
             const parts = f.fecha.split('/');
             return {
                 title: `${f.cliente} - ${f.descripcion}`,
@@ -276,25 +269,35 @@ function abrirCalendarioGlobal() {
             };
         });
 
+        document.getElementById('modal-loader-global').style.display = 'none';
+        const calendarEl = document.getElementById('calendar-global-view');
+        calendarEl.style.display = 'block'; 
+        
+        if (calendarGlobalInstance) calendarGlobalInstance.destroy();
+
         calendarGlobalInstance = new FullCalendar.Calendar(calendarEl, {
-            initialView: 'dayGridMonth', locale: 'es', buttonText: { today: 'Hoy', month: 'Mes', list: 'Agenda' },
+            initialView: 'dayGridMonth', 
+            locale: 'es', 
+            buttonText: { today: 'Hoy', month: 'Mes', list: 'Agenda' },
             headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,listMonth' },
-            events: eventosGlobales, height: '70vh',
+            events: eventosGlobales, 
+            height: '70vh', 
             eventClick: function(info) {
                 const p = info.event.extendedProps;
                 alert(`CLIENTE: ${p.cliente}\nIMPUESTO: ${p.impuesto}\nESTADO: ${p.estado}`);
             }
         });
         
-        // FIX CRÍTICO DE UI: Forzar renderizado y tamaño cuando el modal termina su animación
+        // FIX DE RENDERIZADO: Esperar a que Bootstrap termine su animación visual (300ms)
         setTimeout(() => { 
-            if(calendarGlobalInstance) {
-                calendarGlobalInstance.render();
-                calendarGlobalInstance.updateSize();
-            }
-        }, 350);
+            calendarGlobalInstance.render();
+            calendarGlobalInstance.updateSize(); 
+        }, 300);
 
-    }).catch(err => { alert("Error cargando Calendario Global: " + err); modalGlobalBootstrap.hide(); });
+    }).catch(err => { 
+        alert("Error cargando Calendario Global: " + err); 
+        modalGlobalBootstrap.hide(); 
+    });
 }
 
 // ==========================================
@@ -399,7 +402,7 @@ async function sendRequest(action, payload) {
         }
     } catch (e) {
         if (!["obtenerDashboard", "obtenerCalendarioAnual", "obtenerReglas", "obtenerCalendarioGlobal", "generarMatrizAnual"].includes(action)) {
-            return { status: "success", message: "Operación encolada" };
+            return { status: "success", message: "Operación encolada localmente" };
         }
         throw e;
     }
