@@ -1,5 +1,5 @@
 /**
- * VDH CONTABLE APP PRO v18.3 (Calendario Global Multi-Empresa + Escudos Nulos)
+ * VDH CONTABLE APP PRO v19.0 (Calendario Global Fix + Auto-Generador Frontend)
  */
 
 // ⚠️ RECUERDA: DEBES HACER UNA NUEVA IMPLEMENTACIÓN EN APPS SCRIPT Y PEGAR LA NUEVA URL AQUÍ ⚠️
@@ -78,11 +78,7 @@ function cargarDashboard() {
         datosClientesCache = {}; 
         
         if(!data) throw "Fallo de comunicación: El servidor devolvió null. Revisa tu SCRIPT_URL o la versión de tu despliegue.";
-        
-        if(data.length === 0) { 
-            container.innerHTML = `<div class="alert alert-info text-center">No hay clientes activos.</div>`; 
-            return; 
-        }
+        if(data.length === 0) { container.innerHTML = `<div class="alert alert-info text-center">No hay clientes activos.</div>`; return; }
         
         let html = "";
         data.forEach(item => {
@@ -227,7 +223,12 @@ function renderizarCalendarioFull(fechas, uuid) {
             }
         }
     });
-    setTimeout(() => { calendarInstance.render(); }, 50);
+    
+    // FIX DE RENDERIZADO: Se usa 250ms para asegurar que el DOM esté visible
+    setTimeout(() => { 
+        calendarInstance.render(); 
+        calendarInstance.updateSize(); 
+    }, 250);
 }
 
 function marcarDesdeModal(btn, uuid, impuesto, fecha, periodo) {
@@ -242,12 +243,13 @@ function marcarDesdeModal(btn, uuid, impuesto, fecha, periodo) {
 }
 
 // ==========================================
-// 5. NUEVO: CALENDARIO GLOBAL
+// 5. CALENDARIO GLOBAL FIX (RENDER UI)
 // ==========================================
 let modalGlobalBootstrap, calendarGlobalInstance = null;
 
 function abrirCalendarioGlobal() {
-    modalGlobalBootstrap = new bootstrap.Modal(document.getElementById('modalCalendarioGlobal'));
+    const modalEl = document.getElementById('modalCalendarioGlobal');
+    modalGlobalBootstrap = new bootstrap.Modal(modalEl);
     modalGlobalBootstrap.show();
     
     document.getElementById('modal-loader-global').style.display = 'block';
@@ -286,21 +288,37 @@ function abrirCalendarioGlobal() {
             }
         });
         
-        setTimeout(() => { calendarGlobalInstance.render(); }, 100);
+        // FIX CRÍTICO DE UI: Escucha cuando el modal termina su animación para dibujar la cuadrícula
+        modalEl.addEventListener('shown.bs.modal', function () {
+            if (calendarGlobalInstance) {
+                calendarGlobalInstance.render();
+                calendarGlobalInstance.updateSize();
+            }
+        }, { once: true });
+        
+        // Fallback por si la animación ya terminó
+        setTimeout(() => { 
+            if (calendarGlobalInstance) {
+                calendarGlobalInstance.render();
+                calendarGlobalInstance.updateSize();
+            }
+        }, 300);
+
     }).catch(err => { alert("Error cargando Calendario Global: " + err); modalGlobalBootstrap.hide(); });
 }
 
 // ==========================================
-// 6. CONFIGURACIÓN REGLAS MATRIZ
+// 6. CONFIGURACIÓN REGLAS MATRIZ Y GENERADOR
 // ==========================================
 let modalReglaBootstrap;
+
 function cargarReglasCalendario() {
     const tbody = document.getElementById('tabla-reglas');
     tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm text-primary"></div> Cargando matriz...</td></tr>';
     sendRequest("obtenerReglas", {}).then(res => {
         const data = res.data;
         if(!data) throw "Comando no reconocido. Debes crear una NUEVA IMPLEMENTACIÓN en Google Apps Script.";
-        if(data.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center">No hay reglas.</td></tr>'; return; }
+        if(data.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center">No hay reglas. Usa el generador automático.</td></tr>'; return; }
         
         data.sort((a,b) => a.digito - b.digito || new Date(a.fecha) - new Date(b.fecha));
         let html = "";
@@ -313,6 +331,26 @@ function cargarReglasCalendario() {
         });
         tbody.innerHTML = html;
     }).catch(e => { tbody.innerHTML = `<tr><td colspan="5" class="text-danger text-center py-4">Error crítico: ${e}</td></tr>`; });
+}
+
+function generarMatrizAnualUI() {
+    const anioActual = new Date().getFullYear();
+    let anio = prompt("Ingresa el año tributario que deseas generar (Ejemplo: 2026, 2027):", anioActual);
+    if (!anio) return;
+    
+    if (!confirm(`⚠️ ATENCIÓN: Esta acción generará e inyectará automáticamente más de 180 reglas tributarias de la DIAN (Retefuente, IVA, Renta) para todos los dígitos en el año ${anio}, evadiendo fines de semana. ¿Deseas proceder?`)) {
+        return;
+    }
+    
+    showLoader(`Generando matriz DIAN para el año ${anio}...`);
+    sendRequest("generarMatrizAnual", { anio: anio }).then(res => {
+        hideLoader();
+        alert("✅ ÉXITO: " + res.message);
+        cargarReglasCalendario(); // Refrescar la tabla visual
+    }).catch(e => {
+        hideLoader();
+        alert("❌ Error al generar matriz: " + e);
+    });
 }
 
 function abrirModalRegla() {
