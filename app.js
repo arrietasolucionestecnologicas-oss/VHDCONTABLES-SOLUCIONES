@@ -251,30 +251,19 @@ function abrirCalendarioGlobal() {
         modalGlobalBootstrap = new bootstrap.Modal(modalEl);
     }
     
-    // Limpieza de memoria e instancias muertas (Critical)
+    // 1. Limpiar memoria y forzar el layout del contenedor a bloque visible ANTES de abrir
     if (calendarGlobalInstance) {
         calendarGlobalInstance.destroy();
         calendarGlobalInstance = null;
     }
     calendarEl.innerHTML = '';
-    
-    // Preparar estado de carga inicial
+    calendarEl.style.display = 'block'; 
+    calendarEl.style.visibility = 'hidden'; // Oculto visualmente pero calculable en el DOM
     loaderEl.style.display = 'block';
-    calendarEl.style.display = 'none';
-
-    // PROMESA 1: Ciclo de vida del Modal (Esperar visibilidad física absoluta)
-    const modalListo = new Promise(resolve => {
-        if (modalEl.classList.contains('show')) return resolve();
-        modalEl.addEventListener('shown.bs.modal', resolve, { once: true });
-    });
 
     modalGlobalBootstrap.show();
 
-    // PROMESA 2: Recepción de Datos
-    const datosListos = sendRequest("obtenerCalendarioGlobal", {});
-
-    // BARRERA DE SINCRONIZACIÓN: Ejecutar SOLO cuando ambos procesos terminaron
-    Promise.all([datosListos, modalListo]).then(([res]) => {
+    sendRequest("obtenerCalendarioGlobal", {}).then(res => {
         if(!res.data) throw "Error de servidor al cargar Calendario Global.";
         
         const eventosGlobales = res.data.map(f => {
@@ -290,29 +279,39 @@ function abrirCalendarioGlobal() {
             };
         });
 
-        // 1. Mostrar contenedor en el DOM ANTES de instanciar la clase (Obligatorio)
-        loaderEl.style.display = 'none';
-        calendarEl.style.display = 'block';
-        
-        // 2. Forzar Reflujo del Navegador para calcular BoundingClientRect
-        calendarEl.offsetHeight; 
+        // 2. Definir la función de instanciación atómica
+        const construirCalendario = () => {
+            loaderEl.style.display = 'none';
+            calendarEl.style.visibility = 'visible';
+            
+            // Forzar reflujo de hardware (BoundingClientRect obliga al navegador a pintar la caja física)
+            calendarEl.getBoundingClientRect();
 
-        // 3. Instanciación con dimensiones físicas reales
-        calendarGlobalInstance = new FullCalendar.Calendar(calendarEl, {
-            initialView: 'dayGridMonth', 
-            locale: 'es', 
-            buttonText: { today: 'Hoy', month: 'Mes', list: 'Agenda' },
-            headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,listMonth' },
-            events: eventosGlobales, 
-            height: 600, // Altura bloqueada a nivel de librería
-            eventClick: function(info) {
-                const p = info.event.extendedProps;
-                alert(`CLIENTE: ${p.cliente}\nIMPUESTO: ${p.impuesto}\nESTADO: ${p.estado}`);
-            }
-        });
-        
-        // 4. Renderizado Final Seguro
-        calendarGlobalInstance.render();
+            calendarGlobalInstance = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth', 
+                locale: 'es', 
+                height: 600, // Fijar altura sin depender de padres flex
+                headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,listMonth' },
+                events: eventosGlobales, 
+                eventClick: function(info) {
+                    const p = info.event.extendedProps;
+                    alert(`CLIENTE: ${p.cliente}\nIMPUESTO: ${p.impuesto}\nESTADO: ${p.estado}`);
+                }
+            });
+            calendarGlobalInstance.render();
+        };
+
+        // 3. REGLA CRÍTICA: Instanciar SÓLO cuando el layout del modal sea 100% estático
+        if (modalEl.classList.contains('show') && modalEl.style.display === 'block' && modalEl.getAttribute('aria-modal') === 'true') {
+            // El modal ya terminó su animación
+            construirCalendario();
+        } else {
+            // El modal sigue animándose, anclamos el render al final del lifecycle de Bootstrap
+            modalEl.addEventListener('shown.bs.modal', function onModalShown() {
+                construirCalendario();
+                modalEl.removeEventListener('shown.bs.modal', onModalShown);
+            });
+        }
 
     }).catch(err => { 
         alert("Error cargando Calendario Global: " + err); 
