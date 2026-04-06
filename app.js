@@ -249,7 +249,6 @@ function abrirCalendarioGlobal() {
         modalGlobalBootstrap = new bootstrap.Modal(modalEl);
     }
     
-    // Mostrar modal y loader inmediatamente
     modalGlobalBootstrap.show();
     document.getElementById('modal-loader-global').style.display = 'block';
     document.getElementById('calendar-global-view').style.display = 'none';
@@ -257,7 +256,6 @@ function abrirCalendarioGlobal() {
     sendRequest("obtenerCalendarioGlobal", {}).then(res => {
         if(!res.data) throw "Error de servidor al cargar Calendario Global.";
         
-        // Extraer y mapear datos
         const eventosGlobales = res.data.map(f => {
             let eventColor = '#c59d5f'; 
             if (f.estado === 'VENCIDO') eventColor = '#dc3545'; 
@@ -272,50 +270,45 @@ function abrirCalendarioGlobal() {
             };
         });
 
-        // Quitar loader y poner contenedor visible ANTES de inicializar
         document.getElementById('modal-loader-global').style.display = 'none';
         const calendarEl = document.getElementById('calendar-global-view');
         calendarEl.style.display = 'block'; 
         
         if (calendarGlobalInstance) {
             calendarGlobalInstance.destroy();
+            calendarGlobalInstance = null;
         }
 
-        // Inicializar calendario con altura estática forzada
-        calendarGlobalInstance = new FullCalendar.Calendar(calendarEl, {
-            initialView: 'dayGridMonth', 
-            locale: 'es', 
-            buttonText: { today: 'Hoy', month: 'Mes', list: 'Agenda' },
-            headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,listMonth' },
-            events: eventosGlobales, 
-            height: 600, 
-            eventClick: function(info) {
-                const p = info.event.extendedProps;
-                alert(`CLIENTE: ${p.cliente}\nIMPUESTO: ${p.impuesto}\nESTADO: ${p.estado}`);
-            }
-        });
-        
-        // HACK DEFINITIVO PARA BOOTSTRAP MODALS
-        calendarGlobalInstance.render();
-        
-        // Bucle de asalto visual: Forzar el re-cálculo de tamaño 10 veces (1 segundo en total)
-        // para garantizar que la cuadrícula se expanda una vez la animación del modal finalice.
-        let intentosDeRenderizado = 0;
-        let forceRedrawInterval = setInterval(() => {
-            calendarGlobalInstance.updateSize();
-            window.dispatchEvent(new Event('resize'));
-            intentosDeRenderizado++;
-            if (intentosDeRenderizado > 10) {
-                clearInterval(forceRedrawInterval);
-            }
-        }, 100);
+        const inicializarRender = () => {
+            calendarGlobalInstance = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth', 
+                locale: 'es', 
+                buttonText: { today: 'Hoy', month: 'Mes', list: 'Agenda' },
+                headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,listMonth' },
+                events: eventosGlobales, 
+                height: 550, 
+                eventClick: function(info) {
+                    const p = info.event.extendedProps;
+                    alert(`CLIENTE: ${p.cliente}\nIMPUESTO: ${p.impuesto}\nESTADO: ${p.estado}`);
+                }
+            });
+            calendarGlobalInstance.render();
+        };
+
+        if (modalEl.classList.contains('show')) {
+            inicializarRender();
+        } else {
+            modalEl.addEventListener('shown.bs.modal', function onModalShown() {
+                inicializarRender();
+                modalEl.removeEventListener('shown.bs.modal', onModalShown);
+            }, { once: true });
+        }
 
     }).catch(err => { 
         alert("Error cargando Calendario Global: " + err); 
         modalGlobalBootstrap.hide(); 
     });
 }
-
 // ==========================================
 // 6. CONFIGURACIÓN REGLAS MATRIZ Y GENERADOR
 // ==========================================
