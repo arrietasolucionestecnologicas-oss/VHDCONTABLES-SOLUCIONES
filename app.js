@@ -1,5 +1,5 @@
 /**
- * VDH CONTABLE APP PRO v19.1 (Calendario Global Fix + Auto-Generador + CORS Fix)
+ * VDH CONTABLE APP PRO v19.3 (Calendario Global Render Fix + CORS Interceptor)
  */
 
 // ⚠️ RECUERDA: DEBES HACER UNA NUEVA IMPLEMENTACIÓN EN APPS SCRIPT Y PEGAR LA NUEVA URL AQUÍ ⚠️
@@ -77,7 +77,7 @@ function cargarDashboard() {
         const data = response.data;
         datosClientesCache = {}; 
         
-        if(!data) throw "Fallo de comunicación: El servidor devolvió null. Revisa tu SCRIPT_URL o la versión de tu despliegue.";
+        if(!data) throw "Fallo de comunicación: El servidor devolvió null.";
         if(data.length === 0) { container.innerHTML = `<div class="alert alert-info text-center">No hay clientes activos.</div>`; return; }
         
         let html = "";
@@ -223,12 +223,7 @@ function renderizarCalendarioFull(fechas, uuid) {
             }
         }
     });
-    
-    // FIX DE RENDERIZADO: Se usa 250ms para asegurar que el DOM esté visible
-    setTimeout(() => { 
-        calendarInstance.render(); 
-        calendarInstance.updateSize(); 
-    }, 250);
+    setTimeout(() => { calendarInstance.render(); calendarInstance.updateSize(); }, 250);
 }
 
 function marcarDesdeModal(btn, uuid, impuesto, fecha, periodo) {
@@ -249,7 +244,10 @@ let modalGlobalBootstrap, calendarGlobalInstance = null;
 
 function abrirCalendarioGlobal() {
     const modalEl = document.getElementById('modalCalendarioGlobal');
-    modalGlobalBootstrap = new bootstrap.Modal(modalEl);
+    
+    if (!modalGlobalBootstrap) {
+        modalGlobalBootstrap = new bootstrap.Modal(modalEl);
+    }
     modalGlobalBootstrap.show();
     
     document.getElementById('modal-loader-global').style.display = 'block';
@@ -259,13 +257,13 @@ function abrirCalendarioGlobal() {
         document.getElementById('modal-loader-global').style.display = 'none';
         document.getElementById('calendar-global-view').style.display = 'block';
         
-        if(!res.data) throw "Falta implementar el backend: El servidor devolvió null al solicitar Calendario Global.";
+        if(!res.data) throw "El servidor devolvió null al solicitar Calendario Global.";
         
         const calendarEl = document.getElementById('calendar-global-view');
         if (calendarGlobalInstance) calendarGlobalInstance.destroy();
         
         const eventosGlobales = res.data.map(f => {
-            let eventColor = '#c59d5f'; // Pendiente Global (Dorado)
+            let eventColor = '#c59d5f'; 
             if (f.estado === 'VENCIDO') eventColor = '#dc3545'; 
             if (f.estado === 'PRESENTADO') eventColor = '#198754'; 
             
@@ -288,21 +286,13 @@ function abrirCalendarioGlobal() {
             }
         });
         
-        // FIX CRÍTICO DE UI: Escucha cuando el modal termina su animación para dibujar la cuadrícula
-        modalEl.addEventListener('shown.bs.modal', function () {
-            if (calendarGlobalInstance) {
-                calendarGlobalInstance.render();
-                calendarGlobalInstance.updateSize();
-            }
-        }, { once: true });
-        
-        // Fallback por si la animación ya terminó
+        // FIX CRÍTICO DE UI: Forzar renderizado y tamaño cuando el modal termina su animación
         setTimeout(() => { 
-            if (calendarGlobalInstance) {
+            if(calendarGlobalInstance) {
                 calendarGlobalInstance.render();
                 calendarGlobalInstance.updateSize();
             }
-        }, 300);
+        }, 350);
 
     }).catch(err => { alert("Error cargando Calendario Global: " + err); modalGlobalBootstrap.hide(); });
 }
@@ -317,7 +307,7 @@ function cargarReglasCalendario() {
     tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm text-primary"></div> Cargando matriz...</td></tr>';
     sendRequest("obtenerReglas", {}).then(res => {
         const data = res.data;
-        if(!data) throw "Comando no reconocido. Debes crear una NUEVA IMPLEMENTACIÓN en Google Apps Script.";
+        if(!data) throw "Comando no reconocido. Revisa la URL.";
         if(data.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center">No hay reglas. Usa el generador automático.</td></tr>'; return; }
         
         data.sort((a,b) => a.digito - b.digito || new Date(a.fecha) - new Date(b.fecha));
@@ -338,7 +328,7 @@ function generarMatrizAnualUI() {
     let anio = prompt("Ingresa el año tributario que deseas generar (Ejemplo: 2026, 2027):", anioActual);
     if (!anio) return;
     
-    if (!confirm(`⚠️ ATENCIÓN: Esta acción generará e inyectará automáticamente más de 180 reglas tributarias de la DIAN (Retefuente, IVA, Renta) para todos los dígitos en el año ${anio}, evadiendo fines de semana. ¿Deseas proceder?`)) {
+    if (!confirm(`⚠️ ATENCIÓN: Esta acción generará e inyectará una proyección de fechas de la DIAN (Retefuente, IVA, Renta) para el año ${anio}. Recuerda verificar excepciones con el decreto oficial. ¿Deseas proceder?`)) {
         return;
     }
     
@@ -396,7 +386,7 @@ async function sendRequest(action, payload) {
             body: JSON.stringify({ action: action, payload: payload }) 
         });
         
-        // Leemos la respuesta como texto primero para atrapar los bloqueos de Google
+        // Atrapa bloqueos HTTP crudos antes de fallar el JSON.parse
         const textResponse = await response.text();
         
         try {
@@ -404,13 +394,12 @@ async function sendRequest(action, payload) {
             if(json.status === "error") throw json.message;
             return json;
         } catch (parseError) {
-            console.error("Respuesta cruda de Google (Error oculto):", textResponse);
-            throw "Bloqueo de Google (CORS o Permisos). Verifica: 1) Haber pegado la nueva SCRIPT_URL. 2) Ejecutar manualmente el script en Apps Script para aceptar permisos. 3) Acceso en 'Cualquier persona'.";
+            console.error("Respuesta cruda del servidor:", textResponse);
+            throw "Bloqueo de red (CORS o Permisos). Verifica haber pegado la nueva SCRIPT_URL y aceptado permisos en Google Apps Script.";
         }
     } catch (e) {
-        // Excepciones para consultas que deben mostrar error en pantalla obligatoriamente
         if (!["obtenerDashboard", "obtenerCalendarioAnual", "obtenerReglas", "obtenerCalendarioGlobal", "generarMatrizAnual"].includes(action)) {
-            return { status: "success", message: "Operación encolada localmente" };
+            return { status: "success", message: "Operación encolada" };
         }
         throw e;
     }
