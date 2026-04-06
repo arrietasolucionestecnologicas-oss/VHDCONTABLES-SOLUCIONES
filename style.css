@@ -1,6 +1,6 @@
 :root {
-    --primary: #0b1e47; /* Azul VDH */
-    --accent: #c59d5f;  /* Dorado VDH */
+    --primary: #0b1e47; 
+    --accent: #c59d5f;  
     --bg-light: #f4f6f9;
     --text-dark: #333;
 }
@@ -9,10 +9,9 @@ body {
     background-color: var(--bg-light);
     font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     color: var(--text-dark);
-    padding-bottom: 80px; /* Espacio para botón flotante móvil */
+    padding-bottom: 80px; 
 }
 
-/* Header */
 .app-header {
     background-color: var(--primary);
     color: white;
@@ -31,7 +30,6 @@ body {
     letter-spacing: 1px;
 }
 
-/* Install Banner */
 #install-banner {
     display: none;
     background: var(--accent);
@@ -42,7 +40,6 @@ body {
     cursor: pointer;
 }
 
-/* Cards */
 .card-custom {
     border: none;
     border-radius: 12px;
@@ -59,13 +56,11 @@ body {
     color: var(--primary);
 }
 
-/* Form Controls */
 .form-control:focus, .form-select:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 0.25rem rgba(197, 157, 95, 0.25);
 }
 
-/* Buttons */
 .btn-vdh {
     background-color: var(--primary);
     color: var(--accent);
@@ -83,7 +78,6 @@ body {
     border-color: var(--accent);
 }
 
-/* Loading Overlay */
 .loading-overlay {
     display: none;
     position: fixed;
@@ -107,14 +101,11 @@ body {
 
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-/* ==========================================
-   Ajustes Específicos para FullCalendar
-   ========================================== */
-#calendar-view {
-    font-size: 0.85rem; /* Ajuste para que quepa bien en móvil */
+/* Fix visual para FullCalendar en Modal */
+#calendar-view, #calendar-global-view {
+    font-size: 0.85rem; 
 }
 
-/* Hacer los botones del calendario con los colores de la marca */
 .fc .fc-button-primary {
     background-color: var(--primary) !important;
     border-color: var(--primary) !important;
@@ -127,8 +118,11 @@ body {
     color: var(--primary) !important;
 }
 
-/* Cursor pointer para los eventos del calendario indicando que son interactivos */
 .fc-event {
     cursor: pointer;
     box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.modal-header {
+    border-bottom: 3px solid var(--accent);
 }
