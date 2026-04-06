@@ -1,5 +1,5 @@
 /**
- * VDH CONTABLE APP PRO v18.1 (Calendario Global Multi-Empresa)
+ * VDH CONTABLE APP PRO v18.3 (Calendario Global Multi-Empresa + Escudos Nulos)
  */
 
 // ⚠️ RECUERDA: DEBES HACER UNA NUEVA IMPLEMENTACIÓN EN APPS SCRIPT Y PEGAR LA NUEVA URL AQUÍ ⚠️
@@ -77,7 +77,9 @@ function cargarDashboard() {
         const data = response.data;
         datosClientesCache = {}; 
         
-        if(!data || data.length === 0) { 
+        if(!data) throw "Fallo de comunicación: El servidor devolvió null. Revisa tu SCRIPT_URL o la versión de tu despliegue.";
+        
+        if(data.length === 0) { 
             container.innerHTML = `<div class="alert alert-info text-center">No hay clientes activos.</div>`; 
             return; 
         }
@@ -147,6 +149,7 @@ function verCalendario(uuid, nombreCliente) {
     document.getElementById('vista-toggle-container').style.display = 'none';
     
     sendRequest("obtenerCalendarioAnual", { uuid: uuid }).then(res => {
+        if(!res.data) throw "El servidor devolvió null al solicitar el calendario anual.";
         cacheFechasModal = res.data; cacheUuidModal = uuid;
         document.getElementById('modal-loader').style.display = 'none';
         document.getElementById('vista-toggle-container').style.display = 'block';
@@ -254,6 +257,8 @@ function abrirCalendarioGlobal() {
         document.getElementById('modal-loader-global').style.display = 'none';
         document.getElementById('calendar-global-view').style.display = 'block';
         
+        if(!res.data) throw "Falta implementar el backend: El servidor devolvió null al solicitar Calendario Global.";
+        
         const calendarEl = document.getElementById('calendar-global-view');
         if (calendarGlobalInstance) calendarGlobalInstance.destroy();
         
@@ -294,7 +299,9 @@ function cargarReglasCalendario() {
     tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm text-primary"></div> Cargando matriz...</td></tr>';
     sendRequest("obtenerReglas", {}).then(res => {
         const data = res.data;
+        if(!data) throw "Comando no reconocido. Debes crear una NUEVA IMPLEMENTACIÓN en Google Apps Script.";
         if(data.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center">No hay reglas.</td></tr>'; return; }
+        
         data.sort((a,b) => a.digito - b.digito || new Date(a.fecha) - new Date(b.fecha));
         let html = "";
         data.forEach(r => {
@@ -305,7 +312,7 @@ function cargarReglasCalendario() {
                 <button class="btn btn-sm btn-outline-danger" onclick="eliminarRegla('${r.id}')"><i class="bi bi-trash"></i></button></td></tr>`;
         });
         tbody.innerHTML = html;
-    }).catch(e => { tbody.innerHTML = `<tr><td colspan="5" class="text-danger text-center py-4">Error: ${e}</td></tr>`; });
+    }).catch(e => { tbody.innerHTML = `<tr><td colspan="5" class="text-danger text-center py-4">Error crítico: ${e}</td></tr>`; });
 }
 
 function abrirModalRegla() {
@@ -352,7 +359,7 @@ async function sendRequest(action, payload) {
         return json;
     } catch (e) {
         if (!["obtenerDashboard", "obtenerCalendarioAnual", "obtenerReglas", "obtenerCalendarioGlobal"].includes(action)) return { status: "success", message: "Operación encolada" };
-        throw "Error de conexión.";
+        throw "Error de red o CORS.";
     }
 }
 
