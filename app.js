@@ -1,13 +1,9 @@
 /**
- * VDH CONTABLE APP PRO v13.0
+ * VDH CONTABLE APP PRO v14.0 (Integración UI FullCalendar)
  * Author: Gemini Architect
  */
 
-// ⚠️ PEGA AQUÍ LA URL ACTUALIZADA
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyuLoHmHExucot0kY8RVnrlGaS5dl9WSbQg8dv2Whd4fwzh3SEx-6JihhGlZmuVk8YgeQ/exec"; 
-
-// --- (El resto de funciones showSection, formCliente se mantienen IGUALES que la v12.0) ---
-// Solo copia y pega esto si quieres el archivo completo, si no, solo actualiza verCalendario y renderizarListaFechas
 
 // ==========================================
 // 1. NAVEGACIÓN Y UI
@@ -130,9 +126,13 @@ function cargarDatosEdicion(uuid) {
 }
 
 // ==========================================
-// 4. LÓGICA MODAL (VISTA UNIFICADA)
+// 4. LÓGICA MODAL DUAL (LISTA Y CALENDARIO)
 // ==========================================
 let modalBootstrap; 
+let cacheFechasModal = [];
+let cacheUuidModal = "";
+let calendarInstance = null;
+
 function verCalendario(uuid, nombreCliente) {
     const modalEl = document.getElementById('modalCalendario');
     modalBootstrap = new bootstrap.Modal(modalEl);
@@ -140,15 +140,34 @@ function verCalendario(uuid, nombreCliente) {
     document.getElementById('modalTitle').innerText = `Calendario: ${nombreCliente}`;
     document.getElementById('modal-loader').style.display = 'block';
     document.getElementById('modal-content-body').style.display = 'none';
-    // Nota: Ya no enviamos 'nombreImpuestoBase', el backend buscará TODO
+    document.getElementById('calendar-view').style.display = 'none';
+    document.getElementById('vista-toggle-container').style.display = 'none';
+    
     sendRequest("obtenerCalendarioAnual", { uuid: uuid }).then(response => {
-        renderizarListaFechas(response.data, uuid); 
+        cacheFechasModal = response.data;
+        cacheUuidModal = uuid;
+        
+        document.getElementById('modal-loader').style.display = 'none';
+        document.getElementById('vista-toggle-container').style.display = 'block';
+        document.getElementById('btnList').checked = true; // Por defecto inicia en lista
+        
+        toggleVista('lista'); // Fuerza render
     }).catch(err => { alert("Error: " + err); modalBootstrap.hide(); });
 }
 
+function toggleVista(vista) {
+    if (vista === 'lista') {
+        document.getElementById('calendar-view').style.display = 'none';
+        document.getElementById('modal-content-body').style.display = 'block';
+        renderizarListaFechas(cacheFechasModal, cacheUuidModal);
+    } else {
+        document.getElementById('modal-content-body').style.display = 'none';
+        document.getElementById('calendar-view').style.display = 'block';
+        renderizarCalendarioFull(cacheFechasModal, cacheUuidModal);
+    }
+}
+
 function renderizarListaFechas(fechas, uuid) {
-    document.getElementById('modal-loader').style.display = 'none';
-    document.getElementById('modal-content-body').style.display = 'block';
     const lista = document.getElementById('listaFechas');
     lista.innerHTML = "";
     if (fechas.length === 0) { lista.innerHTML = "<div class='p-3 text-center'>Sin fechas.</div>"; return; }
@@ -157,7 +176,7 @@ function renderizarListaFechas(fechas, uuid) {
     fechas.forEach(f => {
         let icon = f.estado === "PRESENTADO" ? "bi-check-circle-fill text-success" : "bi-circle text-muted";
         let colorFecha = f.estado === "VENCIDO" ? "text-danger fw-bold" : "text-dark";
-        // Etiquetas para distinguir impuestos
+        
         let badgeTipo = `<span class="badge bg-light text-dark border me-1">${f.tipo}</span>`;
         if(f.tipo === "IVA") badgeTipo = `<span class="badge bg-primary me-1">IVA</span>`;
         if(f.tipo.includes("Renta")) badgeTipo = `<span class="badge bg-warning text-dark me-1">RENTA</span>`;
@@ -182,13 +201,81 @@ function renderizarListaFechas(fechas, uuid) {
     lista.innerHTML = html;
 }
 
+function renderizarCalendarioFull(fechas, uuid) {
+    const calendarEl = document.getElementById('calendar-view');
+    
+    // Destruye el anterior si existe para evitar duplicados al abrir/cerrar modal
+    if (calendarInstance) {
+        calendarInstance.destroy();
+    }
+    
+    // Mapeo de eventos al formato que exige FullCalendar
+    const eventosCalendario = fechas.map(f => {
+        let eventColor = '#0b1e47'; // PENDIENTE (Azul VDH)
+        if (f.estado === 'VENCIDO') eventColor = '#dc3545'; // DANGER (Rojo)
+        if (f.estado === 'PRESENTADO') eventColor = '#198754'; // SUCCESS (Verde)
+        
+        // Convertir DD/MM/YYYY a YYYY-MM-DD
+        const parts = f.fecha.split('/');
+        const isoDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+
+        return {
+            title: `${f.tipo}: ${f.descripcion}`,
+            start: isoDate,
+            color: eventColor,
+            extendedProps: {
+                estado: f.estado,
+                uuid: uuid,
+                impuesto: f.descripcion,
+                fechaRaw: f.fecha,
+                periodo: f.periodo
+            }
+        };
+    });
+
+    calendarInstance = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'es',
+        buttonText: { today: 'Hoy', month: 'Mes' },
+        headerToolbar: {
+            left: 'prev,next',
+            center: 'title',
+            right: 'today'
+        },
+        events: eventosCalendario,
+        height: 'auto', // Ajusta al modal sin scroll interno
+        eventClick: function(info) {
+            const props = info.event.extendedProps;
+            if (props.estado === 'PENDIENTE' || props.estado === 'VENCIDO') {
+                if(confirm(`¿Confirmar que el impuesto "${props.impuesto}" (Vence: ${props.fechaRaw}) fue PAGADO?`)) {
+                    // Marcamos usando la misma lógica visual de la lista
+                    sendRequest("marcarPresentado", { uuid: props.uuid, impuesto: props.impuesto, fecha: props.fechaRaw, periodo: props.periodo }).then(res => {
+                        // Refrescar modal completo
+                        const nombreCliente = document.getElementById('modalTitle').innerText.replace("Calendario: ", "");
+                        verCalendario(props.uuid, nombreCliente);
+                        cargarDashboard(); 
+                    }).catch(err => alert("Error al registrar pago: " + err));
+                }
+            } else {
+                alert(`✅ Este impuesto (${props.impuesto}) ya fue reportado como PRESENTADO.`);
+            }
+        }
+    });
+    
+    // El render se debe ejecutar DESPUÉS de que el display:block se haya aplicado en DOM
+    setTimeout(() => { calendarInstance.render(); }, 50);
+}
+
 function marcarDesdeModal(btn, uuid, impuesto, fecha, periodo) {
     if(!confirm(`¿Confirmar pago de: ${impuesto}?`)) return;
     btn.disabled = true; btn.innerText = "...";
     sendRequest("marcarPresentado", { uuid: uuid, impuesto: impuesto, fecha: fecha, periodo: periodo }).then(res => {
         btn.parentElement.innerHTML = `<span class="badge bg-success">Pagado</span>`;
+        // Actualizamos la caché de fechas para que al cambiar de vista se refleje el pago
+        const fechaIndex = cacheFechasModal.findIndex(f => f.descripcion === impuesto);
+        if(fechaIndex > -1) cacheFechasModal[fechaIndex].estado = "PRESENTADO";
         cargarDashboard(); 
-    });
+    }).catch(err => { alert("Error: " + err); btn.disabled = false; btn.innerText = "Pagar"; });
 }
 
 // ==========================================
