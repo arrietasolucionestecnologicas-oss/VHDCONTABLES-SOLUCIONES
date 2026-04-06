@@ -244,71 +244,85 @@ let modalGlobalBootstrap, calendarGlobalInstance = null;
 
 function abrirCalendarioGlobal() {
     const modalEl = document.getElementById('modalCalendarioGlobal');
-    
+    const calendarEl = document.getElementById('calendar-global-view');
+
     if (!modalGlobalBootstrap) {
         modalGlobalBootstrap = new bootstrap.Modal(modalEl);
     }
-    
-    modalGlobalBootstrap.show();
+
+    // Reset visual limpio SIEMPRE
+    calendarEl.innerHTML = '';
+    calendarEl.style.display = 'none';
+    calendarEl.style.height = '550px'; // FORZADO NIVEL 1
+
     document.getElementById('modal-loader-global').style.display = 'block';
-    document.getElementById('calendar-global-view').style.display = 'none';
+
+    modalGlobalBootstrap.show();
 
     sendRequest("obtenerCalendarioGlobal", {}).then(res => {
-        if(!res.data) throw "Error de servidor al cargar Calendario Global.";
-        
+        if (!res.data) throw "Error cargando datos";
+
         const eventosGlobales = res.data.map(f => {
-            let eventColor = '#c59d5f'; 
-            if (f.estado === 'VENCIDO') eventColor = '#dc3545'; 
-            if (f.estado === 'PRESENTADO') eventColor = '#198754'; 
-            
-            const parts = f.fecha.split('/');
+            let color = '#c59d5f';
+            if (f.estado === 'VENCIDO') color = '#dc3545';
+            if (f.estado === 'PRESENTADO') color = '#198754';
+
+            const [d, m, y] = f.fecha.split('/');
             return {
                 title: `${f.cliente} - ${f.descripcion}`,
-                start: `${parts[2]}-${parts[1]}-${parts[0]}`,
-                color: eventColor,
-                extendedProps: { cliente: f.cliente, estado: f.estado, impuesto: f.descripcion }
+                start: `${y}-${m}-${d}`,
+                color: color
             };
         });
 
         document.getElementById('modal-loader-global').style.display = 'none';
-        const calendarEl = document.getElementById('calendar-global-view');
-        calendarEl.style.display = 'block'; 
-        
+        calendarEl.style.display = 'block';
+
         if (calendarGlobalInstance) {
             calendarGlobalInstance.destroy();
             calendarGlobalInstance = null;
         }
 
-        const inicializarRender = () => {
-            calendarGlobalInstance = new FullCalendar.Calendar(calendarEl, {
-                initialView: 'dayGridMonth', 
-                locale: 'es', 
-                buttonText: { today: 'Hoy', month: 'Mes', list: 'Agenda' },
-                headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,listMonth' },
-                events: eventosGlobales, 
-                height: 550, 
-                eventClick: function(info) {
-                    const p = info.event.extendedProps;
-                    alert(`CLIENTE: ${p.cliente}\nIMPUESTO: ${p.impuesto}\nESTADO: ${p.estado}`);
-                }
-            });
+        calendarGlobalInstance = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            locale: 'es',
+            height: 550,
+            contentHeight: 500, // 🔥 FIX CLAVE
+            expandRows: true,   // 🔥 FIX CLAVE
+            handleWindowResize: true,
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,listMonth'
+            },
+            events: eventosGlobales
+        });
+
+        // 🔥 RENDER 100% SEGURO
+        modalEl.addEventListener('shown.bs.modal', function onShow() {
+
+            // FORZAR REFLUJO DEL DOM (CRÍTICO)
+            calendarEl.style.display = 'none';
+            calendarEl.offsetHeight; // hack reflow
+            calendarEl.style.display = 'block';
+
             calendarGlobalInstance.render();
-        };
 
-        if (modalEl.classList.contains('show')) {
-            inicializarRender();
-        } else {
-            modalEl.addEventListener('shown.bs.modal', function onModalShown() {
-                inicializarRender();
-                modalEl.removeEventListener('shown.bs.modal', onModalShown);
-            }, { once: true });
-        }
+            // DOBLE AJUSTE (FULLCALENDAR BUG FIX)
+            setTimeout(() => {
+                calendarGlobalInstance.updateSize();
+                window.dispatchEvent(new Event('resize'));
+            }, 50);
 
-    }).catch(err => { 
-        alert("Error cargando Calendario Global: " + err); 
-        modalGlobalBootstrap.hide(); 
+            modalEl.removeEventListener('shown.bs.modal', onShow);
+        });
+
+    }).catch(err => {
+        alert(err);
+        modalGlobalBootstrap.hide();
     });
 }
+
 // ==========================================
 // 6. CONFIGURACIÓN REGLAS MATRIZ Y GENERADOR
 // ==========================================
