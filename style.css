@@ -126,3 +126,19 @@ body {
 .modal-header {
     border-bottom: 3px solid var(--accent);
 }
+
+/* FUERZA BRUTA PARA CALENDARIO GLOBAL */
+#calendar-global-view {
+    display: block !important;
+    height: 600px !important; /* Altura física obligatoria */
+    min-height: 600px !important;
+    visibility: visible !important;
+}
+
+.fc-view-harness {
+    min-height: 500px !important; /* Evita colapso del grid */
+}
+
+.modal-xl {
+    max-width: 95% !important; /* Asegura espacio para el render */
+}
