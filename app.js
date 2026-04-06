@@ -251,21 +251,20 @@ function abrirCalendarioGlobal() {
         modalGlobalBootstrap = new bootstrap.Modal(modalEl);
     }
     
-    // Limpieza estricta de memoria
-    if (calendarGlobalInstance) {
-        calendarGlobalInstance.destroy();
-        calendarGlobalInstance = null;
+    // 1. Limpieza total de instancias previas para evitar memory leaks
+    if (window.calendarGlobalInstance) {
+        window.calendarGlobalInstance.destroy();
+        window.calendarGlobalInstance = null;
     }
+    calendarEl.innerHTML = '';
     
-    // Estado de carga pre-render
+    // 2. Mostrar modal y loader
     loaderEl.style.display = 'block';
     calendarEl.style.display = 'none';
-    calendarEl.style.height = '600px';
-
     modalGlobalBootstrap.show();
 
     sendRequest("obtenerCalendarioGlobal", {}).then(res => {
-        if(!res.data) throw "Error de servidor al cargar Calendario Global.";
+        if(!res.data) throw "Sin datos del servidor";
         
         const eventosGlobales = res.data.map(f => {
             let eventColor = '#c59d5f'; 
@@ -280,47 +279,43 @@ function abrirCalendarioGlobal() {
             };
         });
 
-        loaderEl.style.display = 'none';
-        calendarEl.style.display = 'block'; 
+        // 3. Función de construcción interna
+        const buildFC = () => {
+            loaderEl.style.display = 'none';
+            calendarEl.style.display = 'block';
 
-        const construirCalendario = () => {
-            // Forzar repintado del navegador (Reflow) antes de inicializar la clase
-            calendarEl.getBoundingClientRect();
-
-            calendarGlobalInstance = new FullCalendar.Calendar(calendarEl, {
-                initialView: 'dayGridMonth', 
-                locale: 'es', 
-                height: 600, // Altura externa
-                contentHeight: 500, // INYECCIÓN DIRECTA: Obliga al .fc-view-harness a medir 500px fijos
-                expandRows: true, // INYECCIÓN DIRECTA: Obliga a las celdas a rellenar el contentHeight
-                stickyHeaderDates: false, // Previene bugs de position:sticky en modales
+            window.calendarGlobalInstance = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                locale: 'es',
+                height: 600,         // Altura fija
+                contentHeight: 550,  // Altura del área de datos
+                expandRows: true,    // Obliga a las filas a estirarse
+                handleWindowResize: true,
                 headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,listMonth' },
-                events: eventosGlobales, 
-                eventClick: function(info) {
+                events: eventosGlobales,
+                eventClick: (info) => {
                     const p = info.event.extendedProps;
                     alert(`CLIENTE: ${p.cliente}\nIMPUESTO: ${p.impuesto}\nESTADO: ${p.estado}`);
                 }
             });
 
-            // requestAnimationFrame delega el renderizado al Paint Cycle exacto del navegador
-            requestAnimationFrame(() => {
-                calendarGlobalInstance.render();
-                calendarGlobalInstance.updateSize();
-            });
+            window.calendarGlobalInstance.render();
+            
+            // Re-evaluación después de 100ms para asegurar que el DOM se asentó
+            setTimeout(() => {
+                window.calendarGlobalInstance.updateSize();
+            }, 100);
         };
 
-        // Barrera asíncrona: ejecutar solo si la animación CSS .fade finalizó
-        if (modalEl.classList.contains('show') && window.getComputedStyle(modalEl).display === 'block') {
-            construirCalendario();
+        // 4. Ejecutar SOLO cuando el modal esté 100% abierto (Fin de animación CSS)
+        if (modalEl.classList.contains('show')) {
+            buildFC();
         } else {
-            modalEl.addEventListener('shown.bs.modal', function onModalShown() {
-                construirCalendario();
-                modalEl.removeEventListener('shown.bs.modal', onModalShown);
-            }, { once: true });
+            modalEl.addEventListener('shown.bs.modal', buildFC, { once: true });
         }
 
     }).catch(err => { 
-        alert("Error cargando Calendario Global: " + err); 
+        alert("Error: " + err); 
         modalGlobalBootstrap.hide(); 
     });
 }
