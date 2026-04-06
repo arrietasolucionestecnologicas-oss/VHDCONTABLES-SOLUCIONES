@@ -106,3 +106,29 @@ body {
 }
 
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* ==========================================
+   Ajustes Específicos para FullCalendar
+   ========================================== */
+#calendar-view {
+    font-size: 0.85rem; /* Ajuste para que quepa bien en móvil */
+}
+
+/* Hacer los botones del calendario con los colores de la marca */
+.fc .fc-button-primary {
+    background-color: var(--primary) !important;
+    border-color: var(--primary) !important;
+}
+
+.fc .fc-button-primary:not(:disabled):active,
+.fc .fc-button-primary:not(:disabled).fc-button-active {
+    background-color: var(--accent) !important;
+    border-color: var(--accent) !important;
+    color: var(--primary) !important;
+}
+
+/* Cursor pointer para los eventos del calendario indicando que son interactivos */
+.fc-event {
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
