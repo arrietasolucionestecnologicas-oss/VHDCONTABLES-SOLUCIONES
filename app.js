@@ -1,5 +1,5 @@
 /**
- * VDH CONTABLE APP PRO v19.0 (Calendario Global Fix + Auto-Generador Frontend)
+ * VDH CONTABLE APP PRO v19.1 (Calendario Global Fix + Auto-Generador + CORS Fix)
  */
 
 // ⚠️ RECUERDA: DEBES HACER UNA NUEVA IMPLEMENTACIÓN EN APPS SCRIPT Y PEGAR LA NUEVA URL AQUÍ ⚠️
@@ -387,17 +387,32 @@ function eliminarRegla(id) {
 }
 
 // ==========================================
-// 7. UTILIDADES BASE
+// 7. UTILIDADES BASE (CORS Y ERROR HANDLING)
 // ==========================================
 async function sendRequest(action, payload) {
     try {
-        const response = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: action, payload: payload }) });
-        const json = await response.json();
-        if(json.status === "error") throw json.message;
-        return json;
+        const response = await fetch(SCRIPT_URL, { 
+            method: "POST", 
+            body: JSON.stringify({ action: action, payload: payload }) 
+        });
+        
+        // Leemos la respuesta como texto primero para atrapar los bloqueos de Google
+        const textResponse = await response.text();
+        
+        try {
+            const json = JSON.parse(textResponse);
+            if(json.status === "error") throw json.message;
+            return json;
+        } catch (parseError) {
+            console.error("Respuesta cruda de Google (Error oculto):", textResponse);
+            throw "Bloqueo de Google (CORS o Permisos). Verifica: 1) Haber pegado la nueva SCRIPT_URL. 2) Ejecutar manualmente el script en Apps Script para aceptar permisos. 3) Acceso en 'Cualquier persona'.";
+        }
     } catch (e) {
-        if (!["obtenerDashboard", "obtenerCalendarioAnual", "obtenerReglas", "obtenerCalendarioGlobal"].includes(action)) return { status: "success", message: "Operación encolada" };
-        throw "Error de red o CORS.";
+        // Excepciones para consultas que deben mostrar error en pantalla obligatoriamente
+        if (!["obtenerDashboard", "obtenerCalendarioAnual", "obtenerReglas", "obtenerCalendarioGlobal", "generarMatrizAnual"].includes(action)) {
+            return { status: "success", message: "Operación encolada localmente" };
+        }
+        throw e;
     }
 }
 
