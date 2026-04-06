@@ -11,9 +11,7 @@
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-    
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
-    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -26,6 +24,9 @@
             <a class="nav-link text-center" href="#" onclick="showSection('dashboard', this)">
                 <i class="bi bi-list-check fs-3 d-block"></i> <small>Estado</small>
             </a>
+            <a class="nav-link text-center" href="#" onclick="showSection('config', this)">
+                <i class="bi bi-gear-fill fs-3 d-block"></i> <small>Config</small>
+            </a>
         </div>
     </nav>
 
@@ -33,6 +34,7 @@
         <div class="container d-flex justify-content-between align-items-center">
             <h4 class="brand-title">VDH CONTABLE & SOLUCIONES</h4>
             <div>
+                <button class="btn btn-outline-info me-2" onclick="showSection('config')"><i class="bi bi-gear"></i> Parametrización</button>
                 <button class="btn btn-outline-light me-2" onclick="limpiarYMostrarCrear()">Nuevo Cliente</button>
                 <button class="btn btn-warning" onclick="showSection('dashboard')">Ver Vencimientos</button>
             </div>
@@ -42,7 +44,6 @@
     <header class="app-header d-md-none text-center">
         <h5 class="brand-title m-0">VDH CONTABLE</h5>
     </header>
-    <div id="install-banner">📲 Instalar App</div>
 
     <div class="container mt-4 mb-5 pb-5">
         
@@ -151,9 +152,28 @@
         </div>
 
         <div id="section-dashboard" class="d-none fade-in">
-            <h5 class="mb-3 text-secondary">Estado de Vencimientos</h5>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="text-secondary m-0">Estado de Vencimientos</h5>
+                <button class="btn btn-primary shadow-sm" onclick="abrirCalendarioGlobal()"><i class="bi bi-globe"></i> Calendario Global</button>
+            </div>
             <button class="btn btn-sm btn-outline-primary mb-3 w-100" onclick="cargarDashboard()">🔄 Actualizar Lista</button>
             <div id="dashboard-content"><div class="text-center text-muted mt-5"><i class="bi bi-cloud-download fs-1"></i><p>Actualizando...</p></div></div>
+        </div>
+
+        <div id="section-config" class="d-none fade-in">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="text-secondary m-0"><i class="bi bi-gear"></i> Matriz Nacional</h5>
+                <button class="btn btn-sm btn-vdh" onclick="abrirModalRegla()">+ Nueva Regla</button>
+            </div>
+            <div class="alert alert-warning small py-2"><i class="bi bi-info-circle"></i> Aquí configuras las fechas oficiales de la DIAN para cada dígito.</div>
+            <div class="bg-white rounded shadow-sm overflow-auto" style="max-height: 65vh;">
+                <table class="table table-hover table-sm align-middle" style="font-size: 0.85rem; margin-bottom: 0;">
+                    <thead class="table-light sticky-top shadow-sm">
+                        <tr><th>Impuesto</th><th>Dígito</th><th>Vencimiento</th><th>Descripción</th><th class="text-end">Acción</th></tr>
+                    </thead>
+                    <tbody id="tabla-reglas"><tr><td colspan="5" class="text-center text-muted py-4">Cargando reglas...</td></tr></tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -161,43 +181,76 @@
         <div class="spinner"></div><p class="mt-3 text-primary fw-bold" id="loader-text">Procesando...</p>
     </div>
 
-    <div class="modal fade" id="modalCalendario" tabindex="-1" aria-hidden="true">
+    <div class="modal fade" id="modalCalendario" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
                 <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title" id="modalTitle">Calendario Anual</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body bg-light">
-                    
-                    <div id="modal-loader" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></div>
-                    
+                    <div id="modal-loader" class="text-center py-4"><div class="spinner-border text-primary"></div></div>
                     <div id="vista-toggle-container" class="text-center mb-4" style="display:none;">
                         <div class="btn-group shadow-sm" role="group">
                             <input type="radio" class="btn-check" name="btnradio" id="btnList" autocomplete="off" checked onchange="toggleVista('lista')">
                             <label class="btn btn-outline-primary px-4" for="btnList"><i class="bi bi-list-ul"></i> Lista</label>
-
                             <input type="radio" class="btn-check" name="btnradio" id="btnCal" autocomplete="off" onchange="toggleVista('calendario')">
                             <label class="btn btn-outline-primary px-4" for="btnCal"><i class="bi bi-calendar3"></i> Calendario</label>
                         </div>
                     </div>
-
-                    <div id="modal-content-body" style="display:none;">
-                        <div class="list-group" id="listaFechas"></div>
-                    </div>
-
+                    <div id="modal-content-body" style="display:none;"><div class="list-group" id="listaFechas"></div></div>
                     <div id="calendar-view" style="display:none;" class="bg-white p-2 rounded shadow-sm"></div>
-
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalCalendarioGlobal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-globe"></i> Calendario Consolidado (Todas las Empresas)</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body bg-light">
+                    <div id="modal-loader-global" class="text-center py-4"><div class="spinner-border text-primary"></div><p>Cruzando bases de datos de todos los clientes...</p></div>
+                    <div id="calendar-global-view" style="display:none;" class="bg-white p-2 rounded shadow-sm"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalRegla" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <form id="formRegla">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title fw-bold" id="tituloModalRegla">Nueva Regla</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body bg-light">
+                        <input type="hidden" id="regla_id">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Tipo de Impuesto</label>
+                            <select class="form-select" id="regla_impuesto" required>
+                                <option value="IVA">IVA</option><option value="Renta">Renta</option><option value="Retención">Retención / Retefuente</option><option value="ICA">ICA</option>
+                            </select>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 mb-3"><label class="form-label small fw-bold">Periodo</label><input type="text" class="form-control" id="regla_periodo" required></div>
+                            <div class="col-6 mb-3"><label class="form-label small fw-bold">Dígito NIT</label><input type="number" class="form-control" id="regla_digito" required min="0" max="9"></div>
+                        </div>
+                        <div class="mb-3"><label class="form-label small fw-bold">Fecha Vencimiento</label><input type="date" class="form-control border-danger" id="regla_fecha" required></div>
+                        <div class="mb-3"><label class="form-label small fw-bold">Descripción Cliente</label><input type="text" class="form-control" id="regla_desc" required></div>
+                    </div>
+                    <div class="modal-footer p-0"><button type="submit" class="btn btn-vdh w-100 m-0 rounded-0 py-3 text-uppercase" id="btnGuardarRegla">Guardar</button></div>
+                </form>
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="app.js"></script>
-    <script>
-        document.querySelector('input[name="fechaConstitucion"]').valueAsDate = new Date();
-        if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
-    </script>
+    <script>document.querySelector('input[name="fechaConstitucion"]').valueAsDate = new Date();</script>
 </body>
 </html>
