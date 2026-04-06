@@ -251,15 +251,16 @@ function abrirCalendarioGlobal() {
         modalGlobalBootstrap = new bootstrap.Modal(modalEl);
     }
     
-    // 1. Limpiar memoria y forzar el layout del contenedor a bloque visible ANTES de abrir
+    // Limpieza estricta de memoria
     if (calendarGlobalInstance) {
         calendarGlobalInstance.destroy();
         calendarGlobalInstance = null;
     }
-    calendarEl.innerHTML = '';
-    calendarEl.style.display = 'block'; 
-    calendarEl.style.visibility = 'hidden'; // Oculto visualmente pero calculable en el DOM
+    
+    // Estado de carga pre-render
     loaderEl.style.display = 'block';
+    calendarEl.style.display = 'none';
+    calendarEl.style.height = '600px';
 
     modalGlobalBootstrap.show();
 
@@ -279,18 +280,20 @@ function abrirCalendarioGlobal() {
             };
         });
 
-        // 2. Definir la función de instanciación atómica
+        loaderEl.style.display = 'none';
+        calendarEl.style.display = 'block'; 
+
         const construirCalendario = () => {
-            loaderEl.style.display = 'none';
-            calendarEl.style.visibility = 'visible';
-            
-            // Forzar reflujo de hardware (BoundingClientRect obliga al navegador a pintar la caja física)
+            // Forzar repintado del navegador (Reflow) antes de inicializar la clase
             calendarEl.getBoundingClientRect();
 
             calendarGlobalInstance = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'dayGridMonth', 
                 locale: 'es', 
-                height: 600, // Fijar altura sin depender de padres flex
+                height: 600, // Altura externa
+                contentHeight: 500, // INYECCIÓN DIRECTA: Obliga al .fc-view-harness a medir 500px fijos
+                expandRows: true, // INYECCIÓN DIRECTA: Obliga a las celdas a rellenar el contentHeight
+                stickyHeaderDates: false, // Previene bugs de position:sticky en modales
                 headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,listMonth' },
                 events: eventosGlobales, 
                 eventClick: function(info) {
@@ -298,19 +301,22 @@ function abrirCalendarioGlobal() {
                     alert(`CLIENTE: ${p.cliente}\nIMPUESTO: ${p.impuesto}\nESTADO: ${p.estado}`);
                 }
             });
-            calendarGlobalInstance.render();
+
+            // requestAnimationFrame delega el renderizado al Paint Cycle exacto del navegador
+            requestAnimationFrame(() => {
+                calendarGlobalInstance.render();
+                calendarGlobalInstance.updateSize();
+            });
         };
 
-        // 3. REGLA CRÍTICA: Instanciar SÓLO cuando el layout del modal sea 100% estático
-        if (modalEl.classList.contains('show') && modalEl.style.display === 'block' && modalEl.getAttribute('aria-modal') === 'true') {
-            // El modal ya terminó su animación
+        // Barrera asíncrona: ejecutar solo si la animación CSS .fade finalizó
+        if (modalEl.classList.contains('show') && window.getComputedStyle(modalEl).display === 'block') {
             construirCalendario();
         } else {
-            // El modal sigue animándose, anclamos el render al final del lifecycle de Bootstrap
             modalEl.addEventListener('shown.bs.modal', function onModalShown() {
                 construirCalendario();
                 modalEl.removeEventListener('shown.bs.modal', onModalShown);
-            });
+            }, { once: true });
         }
 
     }).catch(err => { 
