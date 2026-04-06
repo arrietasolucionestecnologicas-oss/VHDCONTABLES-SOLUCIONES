@@ -249,7 +249,7 @@ function abrirCalendarioGlobal() {
         modalGlobalBootstrap = new bootstrap.Modal(modalEl);
     }
     
-    // 1. Mostrar modal y loader inmediatamente
+    // Mostrar modal y loader inmediatamente
     modalGlobalBootstrap.show();
     document.getElementById('modal-loader-global').style.display = 'block';
     document.getElementById('calendar-global-view').style.display = 'none';
@@ -257,7 +257,7 @@ function abrirCalendarioGlobal() {
     sendRequest("obtenerCalendarioGlobal", {}).then(res => {
         if(!res.data) throw "Error de servidor al cargar Calendario Global.";
         
-        // 2. Extraer y mapear datos
+        // Extraer y mapear datos
         const eventosGlobales = res.data.map(f => {
             let eventColor = '#c59d5f'; 
             if (f.estado === 'VENCIDO') eventColor = '#dc3545'; 
@@ -272,42 +272,43 @@ function abrirCalendarioGlobal() {
             };
         });
 
-        // 3. Quitar loader y poner contenedor visible antes de inicializar
+        // Quitar loader y poner contenedor visible ANTES de inicializar
         document.getElementById('modal-loader-global').style.display = 'none';
         const calendarEl = document.getElementById('calendar-global-view');
         calendarEl.style.display = 'block'; 
         
         if (calendarGlobalInstance) {
             calendarGlobalInstance.destroy();
-            calendarGlobalInstance = null;
         }
 
-        // 4. Inicializar con altura en pixeles estáticos (evita colapso a 0px)
+        // Inicializar calendario con altura estática forzada
         calendarGlobalInstance = new FullCalendar.Calendar(calendarEl, {
             initialView: 'dayGridMonth', 
             locale: 'es', 
             buttonText: { today: 'Hoy', month: 'Mes', list: 'Agenda' },
             headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,listMonth' },
             events: eventosGlobales, 
-            height: 550, // FIX CRÍTICO: 550px en lugar de '70vh'
+            height: 600, 
             eventClick: function(info) {
                 const p = info.event.extendedProps;
                 alert(`CLIENTE: ${p.cliente}\nIMPUESTO: ${p.impuesto}\nESTADO: ${p.estado}`);
             }
         });
         
-        // 5. FIX DE RENDERIZADO (RACE CONDITION)
-        // Solo dibujamos cuando el modal de Bootstrap ha terminado su animación CSS.
-        if (modalEl.classList.contains('show')) {
-            calendarGlobalInstance.render();
+        // HACK DEFINITIVO PARA BOOTSTRAP MODALS
+        calendarGlobalInstance.render();
+        
+        // Bucle de asalto visual: Forzar el re-cálculo de tamaño 10 veces (1 segundo en total)
+        // para garantizar que la cuadrícula se expanda una vez la animación del modal finalice.
+        let intentosDeRenderizado = 0;
+        let forceRedrawInterval = setInterval(() => {
             calendarGlobalInstance.updateSize();
-        } else {
-            modalEl.addEventListener('shown.bs.modal', function onModalShown() {
-                calendarGlobalInstance.render();
-                calendarGlobalInstance.updateSize();
-                modalEl.removeEventListener('shown.bs.modal', onModalShown);
-            });
-        }
+            window.dispatchEvent(new Event('resize'));
+            intentosDeRenderizado++;
+            if (intentosDeRenderizado > 10) {
+                clearInterval(forceRedrawInterval);
+            }
+        }, 100);
 
     }).catch(err => { 
         alert("Error cargando Calendario Global: " + err); 
