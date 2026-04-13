@@ -1,5 +1,5 @@
 /**
- * VDH CONTABLE APP PRO v19.6 (CORS Interceptor + INC Payload + Buscador)
+ * VDH CONTABLE APP PRO v19.7 (Auto-Reparador DB + Buscador Activo + INC Payload)
  */
 
 // ⚠️ RECUERDA: DEBES HACER UNA NUEVA IMPLEMENTACIÓN EN APPS SCRIPT Y PEGAR LA NUEVA URL AQUÍ ⚠️
@@ -67,9 +67,20 @@ document.getElementById('formCliente').addEventListener('submit', e => {
 });
 
 // ==========================================
-// 3. DASHBOARD INDIVIDUAL Y BUSCADOR
+// 3. DASHBOARD INDIVIDUAL Y BUSCADOR (FILTRO)
 // ==========================================
 let datosClientesCache = {}; 
+
+// Función global conectada a la barra de búsqueda generada en el HTML del dashboard
+window.filtrarDashboard = function() {
+    let filtro = document.getElementById('buscadorClientes').value.toLowerCase();
+    let tarjetas = document.querySelectorAll('#dashboard-content .card');
+    tarjetas.forEach(card => {
+        let texto = card.innerText.toLowerCase();
+        // Muestra u oculta la tarjeta según si coincide con lo escrito
+        card.style.display = texto.includes(filtro) ? '' : 'none';
+    });
+};
 
 function cargarDashboard() {
     showLoader("Analizando vencimientos...");
@@ -83,7 +94,8 @@ function cargarDashboard() {
         if(!data) throw "Fallo de comunicación: El servidor devolvió null.";
         if(data.length === 0) { container.innerHTML = `<div class="alert alert-info text-center">No hay clientes activos.</div>`; return; }
         
-        let html = `<input type="text" id="buscadorClientes" class="form-control mb-3 border-primary shadow-sm p-3" placeholder="🔍 Buscar cliente por nombre o impuesto..." onkeyup="filtrarDashboard()">`;
+        // Inyecta el input del buscador dinámicamente antes de listar las empresas
+        let html = `<input type="text" id="buscadorClientes" class="form-control mb-3 border-primary shadow-sm p-3" placeholder="🔍 Buscar por nombre, NIT o impuesto..." onkeyup="window.filtrarDashboard()">`;
         
         data.forEach(item => {
             datosClientesCache[item.uuid] = item.datosFull; 
@@ -114,15 +126,6 @@ function cargarDashboard() {
         });
         container.innerHTML = html;
     }).catch(err => { hideLoader(); container.innerHTML = `<div class="alert alert-danger">Error: ${err}</div>`; });
-}
-
-function filtrarDashboard() {
-    let filtro = document.getElementById('buscadorClientes').value.toLowerCase();
-    let tarjetas = document.querySelectorAll('#dashboard-content .card');
-    tarjetas.forEach(card => {
-        let texto = card.innerText.toLowerCase();
-        card.style.display = texto.includes(filtro) ? '' : 'none';
-    });
 }
 
 function cargarDatosEdicion(uuid) {
@@ -424,7 +427,6 @@ async function sendRequest(action, payload) {
             body: JSON.stringify({ action: action, payload: payload }) 
         });
         
-        // Atrapa bloqueos HTTP crudos antes de fallar el JSON.parse
         const textResponse = await response.text();
         
         try {
