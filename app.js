@@ -1,5 +1,5 @@
 /**
- * VDH CONTABLE APP PRO v19.7 (Auto-Reparador DB + Buscador Activo + INC Payload)
+ * VDH CONTABLE APP PRO v19.7 (Auto-Reparador DB + Buscador Activo + INC Payload + Sanitización)
  */
 
 // ⚠️ RECUERDA: DEBES HACER UNA NUEVA IMPLEMENTACIÓN EN APPS SCRIPT Y PEGAR LA NUEVA URL AQUÍ ⚠️
@@ -71,13 +71,11 @@ document.getElementById('formCliente').addEventListener('submit', e => {
 // ==========================================
 let datosClientesCache = {}; 
 
-// Función global conectada a la barra de búsqueda generada en el HTML del dashboard
 window.filtrarDashboard = function() {
     let filtro = document.getElementById('buscadorClientes').value.toLowerCase();
     let tarjetas = document.querySelectorAll('#dashboard-content .card');
     tarjetas.forEach(card => {
         let texto = card.innerText.toLowerCase();
-        // Muestra u oculta la tarjeta según si coincide con lo escrito
         card.style.display = texto.includes(filtro) ? '' : 'none';
     });
 };
@@ -94,7 +92,6 @@ function cargarDashboard() {
         if(!data) throw "Fallo de comunicación: El servidor devolvió null.";
         if(data.length === 0) { container.innerHTML = `<div class="alert alert-info text-center">No hay clientes activos.</div>`; return; }
         
-        // Inyecta el input del buscador dinámicamente antes de listar las empresas
         let html = `<input type="text" id="buscadorClientes" class="form-control mb-3 border-primary shadow-sm p-3" placeholder="🔍 Buscar por nombre, NIT o impuesto..." onkeyup="window.filtrarDashboard()">`;
         
         data.forEach(item => {
@@ -103,7 +100,9 @@ function cargarDashboard() {
             if(item.estado === "PENDIENTE") { cardClass = "border-danger"; badgeClass = "bg-danger"; }
             else if(item.estado === "PRESENTADO") { cardClass = "border-success"; badgeClass = "bg-success"; }
             
-            let clickAction = item.estado !== "NEUTRO" ? `onclick="verCalendario('${item.uuid}', '${item.cliente}')" style="cursor:pointer"` : "";
+            // 🛡️ SANITIZACIÓN: Escapar comillas para evitar rupturas del DOM en el evento onclick
+            let nombreSeguro = item.cliente.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            let clickAction = item.estado !== "NEUTRO" ? `onclick="verCalendario('${item.uuid}', '${nombreSeguro}')" style="cursor:pointer"` : "";
 
             html += `
             <div class="card shadow-sm mb-3 ${cardClass}">
@@ -354,10 +353,12 @@ function cargarReglasCalendario() {
         data.sort((a,b) => a.digito - b.digito || new Date(a.fecha) - new Date(b.fecha));
         let html = "";
         data.forEach(r => {
+            // 🛡️ SANITIZACIÓN: Escapar comillas en la descripción de las reglas
+            let descSegura = r.desc.replace(/'/g, "\\'").replace(/"/g, '&quot;');
             html += `<tr>
                 <td><span class="badge bg-secondary">${r.impuesto}</span></td><td class="text-center fw-bold text-primary fs-5">${r.digito}</td>
                 <td class="text-danger fw-bold">${r.fecha}</td><td><div class="fw-bold">${r.desc}</div><small class="text-muted">${r.periodo}</small></td>
-                <td class="text-end"><button class="btn btn-sm btn-light border" onclick="editarRegla('${r.id}','${r.impuesto}','${r.periodo}','${r.digito}','${r.fecha}','${r.desc}')"><i class="bi bi-pencil"></i></button>
+                <td class="text-end"><button class="btn btn-sm btn-light border" onclick="editarRegla('${r.id}','${r.impuesto}','${r.periodo}','${r.digito}','${r.fecha}','${descSegura}')"><i class="bi bi-pencil"></i></button>
                 <button class="btn btn-sm btn-outline-danger" onclick="eliminarRegla('${r.id}')"><i class="bi bi-trash"></i></button></td></tr>`;
         });
         tbody.innerHTML = html;
