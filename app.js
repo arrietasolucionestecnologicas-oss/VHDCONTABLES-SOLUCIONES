@@ -1,5 +1,5 @@
 /**
- * VDH CONTABLE APP PRO v19.3 (Calendario Global Render Fix + CORS Interceptor)
+ * VDH CONTABLE APP PRO v19.6 (CORS Interceptor + INC Payload + Buscador)
  */
 
 // ⚠️ RECUERDA: DEBES HACER UNA NUEVA IMPLEMENTACIÓN EN APPS SCRIPT Y PEGAR LA NUEVA URL AQUÍ ⚠️
@@ -32,6 +32,7 @@ function limpiarYMostrarCrear() {
     const btn = document.getElementById('btnGuardar');
     btn.innerText = 'GUARDAR CLIENTE'; btn.classList.remove('btn-warning'); btn.classList.add('btn-vdh');
     document.getElementById('btnCancelarEdicion').classList.add('d-none');
+    if(form.aplicaInc) form.aplicaInc.checked = false;
     showSection('crear');
 }
 
@@ -57,7 +58,8 @@ document.getElementById('formCliente').addEventListener('submit', e => {
         celular: form.celular.value, fechaConstitucion: form.fechaConstitucion.value, ciudad: form.ciudad.value, 
         tipoPersona: form.tipoPersona.value, regimen: form.regimen.value,
         aplicaRenta: form.aplicaRenta.checked, aplicaIva: form.aplicaIva.checked, periodoIva: form.periodoIva.value,
-        aplicaRete: form.aplicaRete.checked, aplicaIca: form.aplicaIca.checked
+        aplicaRete: form.aplicaRete.checked, aplicaIca: form.aplicaIca.checked,
+        aplicaInc: form.aplicaInc ? form.aplicaInc.checked : false
     };
     sendRequest(action, payload).then(data => {
         hideLoader(); alert("✅ " + data.message); limpiarYMostrarCrear();
@@ -65,9 +67,10 @@ document.getElementById('formCliente').addEventListener('submit', e => {
 });
 
 // ==========================================
-// 3. DASHBOARD INDIVIDUAL
+// 3. DASHBOARD INDIVIDUAL Y BUSCADOR
 // ==========================================
 let datosClientesCache = {}; 
+
 function cargarDashboard() {
     showLoader("Analizando vencimientos...");
     const container = document.getElementById('dashboard-content');
@@ -80,7 +83,8 @@ function cargarDashboard() {
         if(!data) throw "Fallo de comunicación: El servidor devolvió null.";
         if(data.length === 0) { container.innerHTML = `<div class="alert alert-info text-center">No hay clientes activos.</div>`; return; }
         
-        let html = "";
+        let html = `<input type="text" id="buscadorClientes" class="form-control mb-3 border-primary shadow-sm p-3" placeholder="🔍 Buscar cliente por nombre o impuesto..." onkeyup="filtrarDashboard()">`;
+        
         data.forEach(item => {
             datosClientesCache[item.uuid] = item.datosFull; 
             let cardClass = "border-secondary"; let badgeClass = "bg-secondary";
@@ -112,6 +116,15 @@ function cargarDashboard() {
     }).catch(err => { hideLoader(); container.innerHTML = `<div class="alert alert-danger">Error: ${err}</div>`; });
 }
 
+function filtrarDashboard() {
+    let filtro = document.getElementById('buscadorClientes').value.toLowerCase();
+    let tarjetas = document.querySelectorAll('#dashboard-content .card');
+    tarjetas.forEach(card => {
+        let texto = card.innerText.toLowerCase();
+        card.style.display = texto.includes(filtro) ? '' : 'none';
+    });
+}
+
 function cargarDatosEdicion(uuid) {
     const data = datosClientesCache[uuid];
     if(!data) return;
@@ -122,6 +135,7 @@ function cargarDatosEdicion(uuid) {
     form.ciudad.value = data.ciudad || "Barranquilla"; form.tipoPersona.value = data.tipo; form.regimen.value = data.regimen;
     form.aplicaRenta.checked = data.renta; form.aplicaIva.checked = data.iva;
     form.aplicaRete.checked = data.rete; form.aplicaIca.checked = data.ica;
+    if(form.aplicaInc) form.aplicaInc.checked = data.inc === true;
     document.getElementById('divPeriodoIva').style.display = data.iva ? 'block' : 'none';
     form.periodoIva.value = data.perIva;
     document.getElementById('tituloFormulario').innerHTML = '<i class="bi bi-pencil-square"></i> Editar Cliente';
@@ -178,6 +192,7 @@ function renderizarListaFechas(fechas, uuid) {
         let badgeTipo = `<span class="badge bg-light text-dark border me-1">${f.tipo}</span>`;
         if(f.tipo === "IVA") badgeTipo = `<span class="badge bg-primary me-1">IVA</span>`;
         if(f.tipo.includes("Renta")) badgeTipo = `<span class="badge bg-warning text-dark me-1">RENTA</span>`;
+        if(f.tipo.includes("Impoconsumo")) badgeTipo = `<span class="badge bg-danger me-1">INC</span>`;
         
         let btnAction = (f.estado === "PENDIENTE" || f.estado === "VENCIDO") 
             ? `<button class="btn btn-sm btn-outline-success ms-2" onclick="marcarDesdeModal(this, '${uuid}', '${f.descripcion}', '${f.fecha}', '${f.periodo}')">Pagar</button>`
